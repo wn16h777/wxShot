@@ -15,7 +15,6 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     private let permissionButton = NSButton()
     private let launchAtLoginCheckbox = NSButton(checkboxWithTitle: "", target: nil, action: nil)
     private let menuBarCheckbox = NSButton(checkboxWithTitle: "", target: nil, action: nil)
-    private let telemetryCheckbox = NSButton(checkboxWithTitle: "", target: nil, action: nil)
     private let languagePopup = NSPopUpButton()
     private var refreshTimer: Timer?
 
@@ -118,27 +117,13 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         menuBarCheckbox.title = L10n.showMenuBarIcon
         menuBarCheckbox.target = self
         menuBarCheckbox.action = #selector(menuBarChanged)
-        telemetryCheckbox.title = L10n.wxTelemetryToggle
-        telemetryCheckbox.target = self
-        telemetryCheckbox.action = #selector(telemetryChanged)
-        [launchAtLoginCheckbox, menuBarCheckbox, telemetryCheckbox].forEach(stack.addArrangedSubview)
-        stack.addArrangedSubview(note(L10n.wxTelemetryHint))
+        [launchAtLoginCheckbox, menuBarCheckbox].forEach(stack.addArrangedSubview)
 
         languagePopup.removeAllItems()
         for language in AppLanguage.allCases { languagePopup.addItem(withTitle: language.displayName) }
         languagePopup.target = self
         languagePopup.action = #selector(languageChanged)
         stack.addArrangedSubview(languagePopup)
-
-        stack.addArrangedSubview(divider())
-        stack.addArrangedSubview(sectionTitle(L10n.wxSectionFeedback))
-        stack.addArrangedSubview(note(L10n.wxFeedbackHint))
-        let feedbackButton = NSButton(title: L10n.wxFeedbackButton, target: self, action: #selector(sendFeedback))
-        feedbackButton.bezelStyle = .rounded
-        stack.addArrangedSubview(feedbackButton)
-
-        stack.addArrangedSubview(divider())
-        stack.addArrangedSubview(footer())
 
         window?.contentView = stack
         // Let the window fit its content height.
@@ -156,20 +141,6 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         row.alignment = .firstBaseline
         row.spacing = 8
         return row
-    }
-
-    private func footer() -> NSView {
-        let links = NSStackView()
-        links.spacing = 14
-        links.addArrangedSubview(linkButton(L10n.wxAboutWebsite, "https://ntfstool.com/wxshot/"))
-        links.addArrangedSubview(linkButton(L10n.wxAboutSource, "https://github.com/ntfstool/wxShot"))
-        links.addArrangedSubview(linkButton("⭐ " + L10n.wxStarOnGitHub, "https://github.com/ntfstool/wxShot"))
-        #if !MAS
-        let update = NSButton(title: L10n.checkForUpdatesMenu, target: self, action: #selector(checkForUpdates))
-        update.bezelStyle = .rounded
-        links.addArrangedSubview(update)
-        #endif
-        return links
     }
 
     private func sectionTitle(_ text: String) -> NSTextField {
@@ -194,14 +165,6 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         return box
     }
 
-    private func linkButton(_ title: String, _ url: String) -> NSButton {
-        let button = NSButton(title: title, target: self, action: #selector(openLink(_:)))
-        button.isBordered = false
-        button.contentTintColor = .linkColor
-        button.identifier = NSUserInterfaceItemIdentifier(url)
-        return button
-    }
-
     // MARK: - Refresh
 
     private func refreshAll() {
@@ -209,7 +172,6 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         refreshPermission()
         launchAtLoginCheckbox.state = LaunchAtLogin.isEnabled ? .on : .off
         menuBarCheckbox.state = Defaults.showMenuBar ? .on : .off
-        telemetryCheckbox.state = Defaults.telemetryEnabled ? .on : .off
         if let index = AppLanguage.allCases.firstIndex(of: Defaults.language) { languagePopup.selectItem(at: index) }
     }
 
@@ -257,67 +219,9 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         onMenuBarToggle?(Defaults.showMenuBar)
     }
 
-    @objc private func telemetryChanged() {
-        Defaults.telemetryEnabled = telemetryCheckbox.state == .on
-    }
-
     @objc private func languageChanged() {
         let index = languagePopup.indexOfSelectedItem
         guard AppLanguage.allCases.indices.contains(index) else { return }
         Defaults.language = AppLanguage.allCases[index]
     }
-
-    /// Collects free-form feedback and hands it to the user's mail app (no server, nothing is uploaded by wxShot).
-    @objc private func sendFeedback() {
-        let alert = NSAlert()
-        alert.messageText = L10n.wxFeedbackTitle
-        alert.informativeText = L10n.wxFeedbackInfo
-        alert.addButton(withTitle: L10n.wxFeedbackSend)
-        alert.addButton(withTitle: L10n.tipCancel)
-        alert.addButton(withTitle: L10n.wxFeedbackGitHub)
-
-        let textView = NSTextView(frame: NSRect(x: 0, y: 0, width: 380, height: 130))
-        textView.isRichText = false
-        textView.font = .systemFont(ofSize: 13)
-        textView.isVerticallyResizable = true
-        textView.autoresizingMask = [.width]
-        textView.textContainerInset = NSSize(width: 4, height: 6)
-        let scroll = NSScrollView(frame: NSRect(x: 0, y: 0, width: 380, height: 130))
-        scroll.documentView = textView
-        scroll.hasVerticalScroller = true
-        scroll.borderType = .bezelBorder
-        alert.accessoryView = scroll
-        alert.window.initialFirstResponder = textView
-
-        switch alert.runModal() {
-        case .alertFirstButtonReturn:
-            let text = textView.string.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !text.isEmpty else { return }
-            let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
-            let body = "\(text)\n\n--\nwxShot \(version)\nmacOS \(ProcessInfo.processInfo.operatingSystemVersionString)"
-            var components = URLComponents(string: "mailto:service@ntfstool.com")!
-            components.queryItems = [URLQueryItem(name: "subject", value: "wxShot feedback"), URLQueryItem(name: "body", value: body)]
-            // Keep a copy: a Mac without a configured mail app silently ignores mailto links.
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(text, forType: .string)
-            if let url = components.url { NSWorkspace.shared.open(url) }
-        case .alertThirdButtonReturn:
-            NSWorkspace.shared.open(URL(string: "https://github.com/ntfstool/wxShot/issues")!)
-        default:
-            break
-        }
-    }
-
-    @objc private func openLink(_ sender: NSButton) {
-        guard let raw = sender.identifier?.rawValue, let url = URL(string: raw) else { return }
-        NSWorkspace.shared.open(url)
-    }
-
-    #if !MAS
-    @objc private func checkForUpdates() {
-        UpdateChecker.shared.check(manual: true) { state in
-            StatusBarController.presentManualCheckResult(state)
-        }
-    }
-    #endif
 }

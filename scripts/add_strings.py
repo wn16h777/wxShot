@@ -34,10 +34,6 @@ S = {
   "en": "WeChat", "zh-Hans": "微信", "zh-Hant": "微信", "ja": "WeChat", "ko": "WeChat", "fr": "WeChat", "ru": "WeChat", "vi": "WeChat"},
  "wxSectionGeneral": {
   "en": "General", "zh-Hans": "通用", "zh-Hant": "一般", "ja": "一般", "ko": "일반", "fr": "Général", "ru": "Основные", "vi": "Chung"},
- "wxTelemetryToggle": {
-  "en": "Send anonymous \"still in use\" statistics", "zh-Hans": "发送匿名使用统计（仅存活信息）", "zh-Hant": "傳送匿名使用統計（僅存活資訊）", "ja": "匿名の利用状況を送信する（稼働情報のみ）", "ko": "익명 사용 통계 보내기 (사용 여부만)", "fr": "Envoyer des statistiques anonymes d'utilisation", "ru": "Отправлять анонимную статистику использования", "vi": "Gửi thống kê ẩn danh (chỉ cho biết còn dùng)"},
- "wxTelemetryHint": {
-  "en": "Only an install id, version, system and language, a few times in the first month. Never screenshots, text or files", "zh-Hans": "仅包含随机安装编号、版本、系统和语言，首月只发几次。绝不上传截图、文字或文件", "zh-Hant": "僅包含隨機安裝編號、版本、系統和語言，首月只發幾次。絕不上傳截圖、文字或檔案", "ja": "ランダムなインストール ID、バージョン、OS、言語のみを最初の一か月に数回送信します。スクリーンショットや文字、ファイルは送りません", "ko": "임의의 설치 ID, 버전, 시스템, 언어만 첫 달에 몇 번 보냅니다. 스크린샷, 텍스트, 파일은 절대 보내지 않습니다", "fr": "Seulement un identifiant d'installation, la version, le système et la langue, quelques fois le premier mois. Jamais de captures, de texte ni de fichiers", "ru": "Только случайный ID установки, версия, система и язык — несколько раз за первый месяц. Никаких скриншотов, текста и файлов", "vi": "Chỉ gồm mã cài đặt ngẫu nhiên, phiên bản, hệ điều hành và ngôn ngữ, vài lần trong tháng đầu. Không bao giờ gửi ảnh, văn bản hay tệp"},
  "wxPermissionStatusGranted": {
   "en": "Screen recording is allowed", "zh-Hans": "已允许屏幕录制", "zh-Hant": "已允許螢幕錄製", "ja": "画面収録は許可されています", "ko": "화면 기록이 허용되었습니다", "fr": "L'enregistrement d'écran est autorisé", "ru": "Запись экрана разрешена", "vi": "Đã cho phép ghi màn hình"},
  "wxPermissionStatusMissing": {
@@ -60,30 +56,10 @@ S = {
   "en": "Start Using wxShot", "zh-Hans": "开始使用", "zh-Hant": "開始使用", "ja": "使い始める", "ko": "시작하기", "fr": "Commencer", "ru": "Начать", "vi": "Bắt đầu dùng"},
  "wxLaterButton": {
   "en": "Later", "zh-Hans": "稍后", "zh-Hant": "稍後", "ja": "あとで", "ko": "나중에", "fr": "Plus tard", "ru": "Позже", "vi": "Để sau"},
- "wxAboutWebsite": {
-  "en": "Website", "zh-Hans": "官网", "zh-Hant": "官網", "ja": "公式サイト", "ko": "웹사이트", "fr": "Site web", "ru": "Сайт", "vi": "Trang web"},
- "wxAboutSource": {
-  "en": "Source code (MIT)", "zh-Hans": "开源代码（MIT）", "zh-Hant": "開源程式碼（MIT）", "ja": "ソースコード（MIT）", "ko": "소스 코드 (MIT)", "fr": "Code source (MIT)", "ru": "Исходный код (MIT)", "vi": "Mã nguồn (MIT)"},
- "wxStarOnGitHub": {
-  "en": "Star wxShot on GitHub", "zh-Hans": "在 GitHub 上给 wxShot 点个 Star", "zh-Hant": "在 GitHub 上給 wxShot 點個 Star", "ja": "GitHub で wxShot にスターを付ける", "ko": "GitHub 에서 wxShot 에 별 주기", "fr": "Mettre une étoile à wxShot sur GitHub", "ru": "Поставить звезду wxShot на GitHub", "vi": "Gắn sao wxShot trên GitHub"},
  "wxConfirmDiscard": {
   "en": "Press again to exit — your edits will be lost", "zh-Hans": "再按一次退出，当前标注将丢失", "zh-Hant": "再按一次退出，目前標註將遺失", "ja": "もう一度押すと終了します（編集内容は失われます）", "ko": "한 번 더 누르면 종료됩니다 (편집 내용이 사라집니다)", "fr": "Appuyez à nouveau pour quitter — vos modifications seront perdues", "ru": "Нажмите ещё раз, чтобы выйти — правки будут потеряны", "vi": "Nhấn lần nữa để thoát — các chỉnh sửa sẽ bị mất"},
  "wxTipSettings": {
   "en": "Settings", "zh-Hans": "设置", "zh-Hant": "設定", "ja": "設定", "ko": "설정", "fr": "Réglages", "ru": "Настройки", "vi": "Cài đặt"},
- "wxSectionFeedback": {
-  "en": "Feedback", "zh-Hans": "用户反馈", "zh-Hant": "使用者回饋", "ja": "フィードバック", "ko": "피드백", "fr": "Commentaires", "ru": "Обратная связь", "vi": "Phản hồi"},
- "wxFeedbackHint": {
-  "en": "Missing a feature, found a bug, or have an idea? Tell us — wxShot keeps improving from your feedback.", "zh-Hans": "想要的功能、遇到的问题、好点子都可以告诉我们，wxShot 会根据反馈持续优化。", "zh-Hant": "想要的功能、遇到的問題、好點子都可以告訴我們，wxShot 會根據回饋持續優化。", "ja": "欲しい機能、不具合、アイデアなど何でもお寄せください。wxShot はフィードバックをもとに改善を続けます。", "ko": "원하는 기능, 문제점, 아이디어를 알려 주세요. wxShot 은 피드백을 바탕으로 계속 개선됩니다.", "fr": "Une fonction manquante, un bug, une idée ? Dites-le-nous : wxShot s'améliore grâce à vos retours.", "ru": "Нужна функция, нашли ошибку или есть идея? Напишите нам — wxShot развивается благодаря вашим отзывам.", "vi": "Thiếu tính năng, gặp lỗi hay có ý tưởng? Hãy cho chúng tôi biết — wxShot luôn được cải thiện nhờ phản hồi của bạn."},
- "wxFeedbackButton": {
-  "en": "Send Feedback…", "zh-Hans": "提交反馈…", "zh-Hant": "提交回饋…", "ja": "フィードバックを送る…", "ko": "피드백 보내기…", "fr": "Envoyer un commentaire…", "ru": "Отправить отзыв…", "vi": "Gửi phản hồi…"},
- "wxFeedbackTitle": {
-  "en": "Send feedback", "zh-Hans": "提交反馈", "zh-Hant": "提交回饋", "ja": "フィードバックを送る", "ko": "피드백 보내기", "fr": "Envoyer un commentaire", "ru": "Отправить отзыв", "vi": "Gửi phản hồi"},
- "wxFeedbackInfo": {
-  "en": "Describe the feature you want or the problem you ran into. Your mail app opens with this text filled in; the app and macOS versions are added.", "zh-Hans": "请描述你想要的功能或遇到的问题。点击发送会打开邮件应用并填好内容，同时附上软件与系统版本。", "zh-Hant": "請描述你想要的功能或遇到的問題。按下傳送會開啟郵件 App 並填好內容，同時附上軟體與系統版本。", "ja": "欲しい機能や困っていることを書いてください。メールアプリが開き、本文が入力され、アプリと macOS のバージョンが付きます。", "ko": "원하는 기능이나 겪은 문제를 적어 주세요. 메일 앱이 열리며 내용이 채워지고 앱·macOS 버전이 함께 들어갑니다.", "fr": "Décrivez la fonction souhaitée ou le problème rencontré. Votre application Mail s'ouvre avec le texte, plus les versions de l'app et de macOS.", "ru": "Опишите нужную функцию или проблему. Откроется почтовое приложение с этим текстом и версиями приложения и macOS.", "vi": "Hãy mô tả tính năng bạn muốn hoặc sự cố gặp phải. Ứng dụng thư sẽ mở với nội dung này kèm phiên bản ứng dụng và macOS."},
- "wxFeedbackSend": {
-  "en": "Send", "zh-Hans": "发送", "zh-Hant": "傳送", "ja": "送信", "ko": "보내기", "fr": "Envoyer", "ru": "Отправить", "vi": "Gửi"},
- "wxFeedbackGitHub": {
-  "en": "GitHub Issues", "zh-Hans": "GitHub 反馈区", "zh-Hant": "GitHub Issues", "ja": "GitHub Issues", "ko": "GitHub Issues", "fr": "GitHub Issues", "ru": "GitHub Issues", "vi": "GitHub Issues"},
  "wxTipShare": {
   "en": "Share", "zh-Hans": "分享", "zh-Hant": "分享", "ja": "共有", "ko": "공유", "fr": "Partager", "ru": "Поделиться", "vi": "Chia sẻ"},
  "wxTipMore": {
@@ -98,8 +74,6 @@ S = {
   "en": "Translation failed. Make sure the language pack is downloaded in System Settings › General › Language & Region › Translation Languages", "zh-Hans": "翻译失败。请在 系统设置 › 通用 › 语言与地区 › 翻译语言 中下载对应语言", "zh-Hant": "翻譯失敗。請在 系統設定 › 一般 › 語言與地區 › 翻譯語言 中下載對應語言", "ja": "翻訳に失敗しました。システム設定 › 一般 › 言語と地域 › 翻訳言語 で言語をダウンロードしてください", "ko": "번역에 실패했습니다. 시스템 설정 › 일반 › 언어 및 지역 › 번역 언어 에서 언어를 내려받으세요", "fr": "Échec de la traduction. Téléchargez la langue dans Réglages Système › Général › Langue et région › Langues de traduction", "ru": "Не удалось перевести. Загрузите язык в Системные настройки › Основные › Язык и регион › Языки перевода", "vi": "Dịch thất bại. Hãy tải gói ngôn ngữ trong Cài đặt hệ thống › Cài đặt chung › Ngôn ngữ & Vùng › Ngôn ngữ dịch"},
  "wxLensCopyHint": {
   "en": "Press ⌘+C to copy the color", "zh-Hans": "按 ⌘+C 复制色值", "zh-Hant": "按 ⌘+C 複製色值", "ja": "⌘+C で色をコピー", "ko": "⌘+C 로 색상 복사", "fr": "⌘+C pour copier la couleur", "ru": "⌘+C — копировать цвет", "vi": "Nhấn ⌘+C để sao chép màu"},
- "wxUpdateRequiredBody": {
-  "en": "This version is no longer supported. Please download the latest version to keep using wxShot.", "zh-Hans": "此版本已不再支持，请下载最新版本后继续使用 wxShot。", "zh-Hant": "此版本已不再支援，請下載最新版本後繼續使用 wxShot。", "ja": "このバージョンはサポート終了です。wxShot を使い続けるには最新版をダウンロードしてください。", "ko": "이 버전은 더 이상 지원되지 않습니다. wxShot 을 계속 쓰려면 최신 버전을 내려받으세요.", "fr": "Cette version n'est plus prise en charge. Téléchargez la dernière version pour continuer à utiliser wxShot.", "ru": "Эта версия больше не поддерживается. Скачайте последнюю версию, чтобы продолжить пользоваться wxShot.", "vi": "Phiên bản này không còn được hỗ trợ. Vui lòng tải phiên bản mới nhất để tiếp tục dùng wxShot."},
  "wxScrollTooFast": {
   "en": "Scrolling too fast — slow down so every part is captured", "zh-Hans": "滚动太快了，请放慢速度，才能完整拼接", "zh-Hant": "捲動太快了，請放慢速度，才能完整拼接", "ja": "スクロールが速すぎます。ゆっくりスクロールしてください", "ko": "스크롤이 너무 빠릅니다. 천천히 스크롤하세요", "fr": "Défilement trop rapide — ralentissez pour tout capturer", "ru": "Слишком быстрая прокрутка — замедлитесь, чтобы захватить всё", "vi": "Cuộn quá nhanh — hãy chậm lại để chụp đầy đủ"},
  "wxLongShotCopied": {

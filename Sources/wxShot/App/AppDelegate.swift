@@ -20,9 +20,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         ImageEditLauncher.clearTempDir()
-        #if !MAS
-        UpdateChecker.shared.checkAtLaunchIfDue()
-        #endif
         if AppPermissions.screenRecordingGranted {
             OverlayWindowController.prewarmPresentationSurfaces()
             ScreenSnapshotProvider.shared.prewarm()
@@ -44,7 +41,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         WeChatMonitor.shared.start()
-        SurvivalReporter.shared.start()
         applyHotkeyState()
 
         #if DEBUG
@@ -136,14 +132,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             context.finish(.rerouted)
             return
         }
-        startCapture(
-            triggerContext: context,
-            onFirstFramePresented: fromShortcut ? {
-                #if !MAS
-                UpdateChecker.shared.checkFromScreenshotShortcutIfDue()
-                #endif
-            } : nil
-        )
+        startCapture(triggerContext: context)
     }
 
     /// Select a screen region and pin it immediately after capture.
@@ -230,7 +219,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func handleEditCompletion(_ finalImage: NSImage?) {
         if let finalImage = finalImage {
-            SurvivalReporter.shared.count("capture")
             let quality = Defaults.screenshotClipboardQuality
             if quality.usesLossyCompression {
                 ToastWindow.show(message: L10n.screenshotQualityCompressingClipboard, duration: 600)

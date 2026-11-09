@@ -28,7 +28,7 @@ final class StatusBarController: NSObject {
         }
         setupMenu()
 
-        for name in [Notification.Name.languageDidChange, .hotkeyDidChange, .updateStateDidChange] {
+        for name in [Notification.Name.languageDidChange, .hotkeyDidChange] {
             NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
                 self?.setupMenu()
             }
@@ -61,10 +61,6 @@ final class StatusBarController: NSObject {
         settingsItem.image = Self.menuIcon(systemName: "gearshape")
         menu.addItem(settingsItem)
 
-        #if !MAS
-        menu.addItem(makeUpdateMenuItem())
-        #endif
-
         menu.addItem(.separator())
 
         let quitItem = NSMenuItem(title: L10n.quitApp, action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
@@ -93,81 +89,4 @@ final class StatusBarController: NSObject {
     @objc private func takeScreenshot() { onTakeScreenshot() }
     @objc private func takeFullScreenScreenshot() { onTakeFullScreenScreenshot() }
     @objc private func openSettings() { onOpenSettings() }
-
-    // MARK: - Updates (direct-download build only; the App Store updates the app itself)
-
-    private func makeUpdateMenuItem() -> NSMenuItem {
-        let item: NSMenuItem
-        switch UpdateChecker.shared.state {
-        case .available(let version):
-            item = NSMenuItem(title: L10n.updateAvailableMenu(version), action: #selector(openReleasePage), keyEquivalent: "")
-            item.image = Self.menuIcon(systemName: "arrow.down.circle.fill")
-        case .checking:
-            item = NSMenuItem(title: L10n.checkingForUpdatesMenu, action: nil, keyEquivalent: "")
-            item.isEnabled = false
-        default:
-            item = NSMenuItem(title: L10n.checkForUpdatesMenu, action: #selector(checkForUpdates), keyEquivalent: "")
-            item.image = Self.menuIcon(systemName: "arrow.triangle.2.circlepath")
-        }
-        item.target = self
-        return item
-    }
-
-    @objc private func openReleasePage() {
-        NSWorkspace.shared.open(UpdateChecker.shared.latestPageURL ?? UpdateChecker.fallbackPageURL)
-    }
-
-    @objc private func checkForUpdates() {
-        UpdateChecker.shared.check(manual: true) { state in
-            Self.presentManualCheckResult(state)
-        }
-    }
-
-    /// Shown after a background check. Recommended updates can be postponed or skipped; a required one (server
-    /// `min_version`) only offers the download, and the app quits so an unsupported build is not used any further.
-    static func presentBackgroundUpdatePrompt(version: String, required: Bool) {
-        let alert = NSAlert()
-        alert.messageText = L10n.updateAvailableTitle(version)
-        alert.informativeText = required ? L10n.wxUpdateRequiredBody : L10n.updateAvailableBody
-        alert.addButton(withTitle: L10n.updateOpenPageButton)
-        if !required {
-            alert.addButton(withTitle: L10n.updateLaterButton)
-            alert.addButton(withTitle: L10n.updateSkipButton)
-        }
-        NSApp.activate(ignoringOtherApps: true)
-        let response = alert.runModal()
-        if response == .alertFirstButtonReturn {
-            NSWorkspace.shared.open(UpdateChecker.shared.latestPageURL ?? UpdateChecker.fallbackPageURL)
-        } else if response == .alertThirdButtonReturn {
-            UpdateChecker.shared.skipVersion()
-        }
-        if required { NSApp.terminate(nil) }
-    }
-
-    static func presentManualCheckResult(_ state: UpdateState) {
-        let alert = NSAlert()
-        switch state {
-        case .available(let version):
-            alert.messageText = L10n.updateAvailableTitle(version)
-            alert.informativeText = L10n.updateAvailableBody
-            alert.addButton(withTitle: L10n.updateOpenPageButton)
-            alert.addButton(withTitle: L10n.updateLaterButton)
-            NSApp.activate(ignoringOtherApps: true)
-            if alert.runModal() == .alertFirstButtonReturn {
-                NSWorkspace.shared.open(UpdateChecker.shared.latestPageURL ?? UpdateChecker.fallbackPageURL)
-            }
-            return
-        case .upToDate:
-            alert.messageText = L10n.updateUpToDateTitle
-            alert.informativeText = L10n.updateUpToDateBody(UpdateChecker.shared.currentVersion)
-        case .failed:
-            alert.messageText = L10n.updateFailedTitle
-            alert.informativeText = L10n.updateFailedBody
-        case .idle, .checking:
-            return
-        }
-        alert.addButton(withTitle: L10n.updateOKButton)
-        NSApp.activate(ignoringOtherApps: true)
-        alert.runModal()
-    }
 }
