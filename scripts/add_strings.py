@@ -3,7 +3,7 @@
 Idempotent: existing keys are left untouched. Run from the repo root: python3 scripts/add_strings.py"""
 import re, pathlib
 
-LANGS = ["en", "zh-Hans", "zh-Hant", "ja", "ko", "fr", "ru", "vi"]
+LANGS = ["en", "zh-Hans"]
 
 S = {
  "wxSettingsWindowTitle": {
@@ -11,7 +11,7 @@ S = {
  "wxSectionShortcut": {
   "en": "Screenshot shortcut", "zh-Hans": "截图快捷键", "zh-Hant": "截圖快速鍵", "ja": "スクリーンショットのショートカット", "ko": "스크린샷 단축키", "fr": "Raccourci de capture", "ru": "Сочетание клавиш", "vi": "Phím tắt chụp màn hình"},
  "wxShortcutDefaultNote": {
-  "en": "The default ⌥A is the same as WeChat's screenshot shortcut, so your habits carry over", "zh-Hans": "默认 ⌥A，与微信截图习惯一致，无需重新适应", "zh-Hant": "預設 ⌥A，與微信截圖習慣一致，無需重新適應", "ja": "既定の ⌥A は WeChat のスクリーンショットと同じなので、操作感はそのままです", "ko": "기본값 ⌥A 는 WeChat 스크린샷과 같아서 손에 익은 그대로 쓸 수 있습니다", "fr": "⌥A par défaut, comme la capture de WeChat : vos habitudes restent les mêmes", "ru": "По умолчанию ⌥A, как в скриншоте WeChat — привычки сохраняются", "vi": "Mặc định ⌥A, giống phím chụp của WeChat nên bạn không cần làm quen lại"},
+  "en": "The default ⌃⌘A is the same as WeChat's screenshot shortcut, so your habits carry over", "zh-Hans": "默认 ⌃⌘A，与微信截图习惯一致，无需重新适应", "zh-Hant": "預設 ⌃⌘A，與微信截圖習慣一致，無需重新適應", "ja": "既定の ⌃⌘A は WeChat のスクリーンショットと同じなので、操作感はそのままです", "ko": "기본값 ⌃⌘A 는 WeChat 스크린샷과 같아서 손에 익은 그대로 쓸 수 있습니다", "fr": "⌃⌘A par défaut, comme la capture de WeChat : vos habitudes restent les mêmes", "ru": "По умолчанию ⌃⌘A, как в скриншоте WeChat — привычки сохраняются", "vi": "Mặc định ⌃⌘A, giống phím chụp của WeChat nên bạn không cần làm quen lại"},
  "wxSectionWeChat": {
   "en": "When WeChat is open", "zh-Hans": "微信打开时", "zh-Hant": "微信開啟時", "ja": "WeChat が起動しているとき", "ko": "WeChat 이 실행 중일 때", "fr": "Quand WeChat est ouvert", "ru": "Когда открыт WeChat", "vi": "Khi WeChat đang mở"},
  "wxPolicyAuto": {

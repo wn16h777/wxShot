@@ -4,20 +4,13 @@ import Foundation
 /// `appLanguage` UserDefaults value (kept stable for backward compatibility).
 enum AppLanguage: String, CaseIterable {
     case zh
-    case zhTW = "zh-Hant"
     case en
-    case ja
-    case ko
-    case fr
-    case ru
-    case vi
 
     /// Folder name (without extension) of the matching `.lproj` bundle inside
     /// `wxshot.app/Contents/Resources/`.
     var lprojName: String {
         switch self {
         case .zh: return "zh-Hans"
-        case .zhTW: return "zh-Hant"
         default:  return rawValue
         }
     }
@@ -26,13 +19,7 @@ enum AppLanguage: String, CaseIterable {
     var displayName: String {
         switch self {
         case .zh: return "简体中文"
-        case .zhTW: return "繁體中文"
         case .en: return "English"
-        case .ja: return "日本語"
-        case .ko: return "한국어"
-        case .fr: return "Français"
-        case .ru: return "Русский"
-        case .vi: return "Tiếng Việt"
         }
     }
 
@@ -41,18 +28,7 @@ enum AppLanguage: String, CaseIterable {
     static var systemDefault: AppLanguage {
         for code in Locale.preferredLanguages {
             let lower = code.lowercased()
-            if lower.hasPrefix("zh-hant") ||
-                lower.hasPrefix("zh-tw") ||
-                lower.hasPrefix("zh-hk") ||
-                lower.hasPrefix("zh-mo") {
-                return .zhTW
-            }
             if lower.hasPrefix("zh") { return .zh }
-            if lower.hasPrefix("ja") { return .ja }
-            if lower.hasPrefix("ko") { return .ko }
-            if lower.hasPrefix("fr") { return .fr }
-            if lower.hasPrefix("ru") { return .ru }
-            if lower.hasPrefix("vi") { return .vi }
             if lower.hasPrefix("en") { return .en }
         }
         return .en
