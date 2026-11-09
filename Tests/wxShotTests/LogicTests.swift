@@ -15,8 +15,8 @@ final class LogicTests: XCTestCase {
         }
     }
 
-    func testDefaultShortcutIsOptionA() {
+    func testDefaultShortcutMatchesWeChatMac() {
         let hk = HotkeyManager.defaultHotkey
-        XCTAssertEqual(HotkeyManager.modifierString(hk.modifiers) + HotkeyManager.keyString(hk.keyCode), "⌥A")
+        XCTAssertEqual(HotkeyManager.modifierString(hk.modifiers) + HotkeyManager.keyString(hk.keyCode), "⌃⌘A")
     }
 }

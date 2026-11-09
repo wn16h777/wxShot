@@ -1,6 +1,6 @@
 # wxShot (personal fork)
 
-Menu-bar-less macOS screenshot tool that replaces WeChat's screenshot when WeChat is not signed in. Press `⌥A` anywhere; drag to select; double-click or press Return to copy. Rectangle, ellipse, arrow, pen, mosaic, text, OCR, translate, long screenshot, pin — WeChat's toolbar, rebuilt in pure AppKit.
+Menu-bar-less macOS screenshot tool that replaces WeChat's screenshot when WeChat is not signed in. Press `⌃⌘A` anywhere (WeChat for Mac's own screenshot key); drag to select; double-click or press Return to copy. Rectangle, ellipse, arrow, pen, mosaic, text, OCR, translate, long screenshot, pin — WeChat's toolbar, rebuilt in pure AppKit.
 
 This is a **personal fork** with the upstream's network-facing pieces removed: no telemetry, no update check, no website/GitHub/feedback links. The app makes **zero network requests**. Everything runs on-device (capture via ScreenCaptureKit, text recognition via Vision, translation via Apple Translation).
 

@@ -717,7 +717,7 @@
 /* wxShot */
 "wxSettingsWindowTitle" = "wxShot 设置";
 "wxSectionShortcut" = "截图快捷键";
-"wxShortcutDefaultNote" = "默认 ⌥A，与微信截图习惯一致，无需重新适应";
+"wxShortcutDefaultNote" = "默认 ⌃⌘A，与微信截图习惯一致，无需重新适应";
 "wxSectionWeChat" = "微信打开时";
 "wxPolicyAuto" = "自动：微信登录后交给微信，未登录时用 wxShot";
 "wxPolicyAlways" = "始终使用 wxShot 截图";

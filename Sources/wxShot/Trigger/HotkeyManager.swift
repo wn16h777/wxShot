@@ -133,8 +133,8 @@ final class HotkeyManager {
 
     // MARK: - Stored hotkey accessors
 
-    /// The default shortcut, same muscle memory as WeChat's screenshot: ⌥A.
-    static let defaultHotkey: (keyCode: UInt32, modifiers: UInt32) = (UInt32(kVK_ANSI_A), UInt32(optionKey))
+    /// The default shortcut, same as WeChat for Mac's screenshot: ⌃⌘A.
+    static let defaultHotkey: (keyCode: UInt32, modifiers: UInt32) = (UInt32(kVK_ANSI_A), UInt32(cmdKey | controlKey))
 
     /// Returns (keyCode, carbonModifiers) for the screenshot hotkey: the saved one, or the default.
     func currentHotkey() -> (keyCode: UInt32, modifiers: UInt32)? {

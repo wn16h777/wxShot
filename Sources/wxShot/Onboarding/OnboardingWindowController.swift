@@ -73,7 +73,7 @@ final class OnboardingWindowController: NSWindowController, NSWindowDelegate {
         let permissionRow = NSStackView(views: [permissionStatus, grantButton])
         permissionRow.spacing = 12
 
-        let shortcut = HotkeyManager.currentDisplayString() ?? "⌥A"
+        let shortcut = HotkeyManager.currentDisplayString() ?? "⌃⌘A"
         let step2 = NSTextField(labelWithString: L10n.wxStepShortcut(shortcut))
         step2.font = .systemFont(ofSize: 14, weight: .semibold)
         let step2Note = wrapping(L10n.wxStepShortcutNote, size: 11, color: .secondaryLabelColor)

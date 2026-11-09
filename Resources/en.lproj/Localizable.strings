@@ -717,7 +717,7 @@
 /* wxShot */
 "wxSettingsWindowTitle" = "wxShot Settings";
 "wxSectionShortcut" = "Screenshot shortcut";
-"wxShortcutDefaultNote" = "The default ⌥A is the same as WeChat's screenshot shortcut, so your habits carry over";
+"wxShortcutDefaultNote" = "The default ⌃⌘A is the same as WeChat's screenshot shortcut, so your habits carry over";
 "wxSectionWeChat" = "When WeChat is open";
 "wxPolicyAuto" = "Automatic: WeChat takes over once it is signed in";
 "wxPolicyAlways" = "Always use wxShot";
