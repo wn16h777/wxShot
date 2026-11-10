@@ -1,5 +1,4 @@
 import AppKit
-import PermissionFlow
 
 /// The whole settings surface: one short page, no tabs.
 final class SettingsWindowController: NSWindowController, NSWindowDelegate {

@@ -1,5 +1,4 @@
 import AppKit
-import PermissionFlow
 
 /// First-run welcome and permission guide. It is also what opens when the shortcut is pressed before screen recording
 /// has been allowed.
@@ -10,12 +9,6 @@ final class OnboardingWindowController: NSWindowController, NSWindowDelegate {
     private let grantButton = NSButton()
     private let startButton = NSButton()
     private var pollTimer: Timer?
-    private lazy var permissionFlow = PermissionFlow.makeController(
-        configuration: PermissionFlowConfiguration(
-            requiredAppURLs: [Bundle.main.bundleURL],
-            localeIdentifier: Defaults.language.lprojName
-        )
-    )
 
     var isVisible: Bool { window?.isVisible == true }
 
@@ -49,7 +42,6 @@ final class OnboardingWindowController: NSWindowController, NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
         pollTimer?.invalidate()
         pollTimer = nil
-        permissionFlow.closePanel()
     }
 
     private func buildContent() {
@@ -114,14 +106,12 @@ final class OnboardingWindowController: NSWindowController, NSWindowDelegate {
     }
 
     @objc private func grantClicked() {
-        // Registers wxShot in the Screen Recording list, then walks the user through switching it on.
+        // Registers wxShot in the Screen Recording list, then opens the
+        // relevant System Settings pane directly.
         _ = CGRequestScreenCaptureAccess()
-        permissionFlow.setLocaleIdentifier(Defaults.language.lprojName)
-        permissionFlow.authorize(
-            pane: .screenRecording,
-            suggestedAppURLs: [Bundle.main.bundleURL],
-            sourceFrameInScreen: window.map { $0.convertToScreen(grantButton.convert(grantButton.bounds, to: nil)) }
-        )
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
+            NSWorkspace.shared.open(url)
+        }
     }
 
     @objc private func startClicked() {

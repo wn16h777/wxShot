@@ -1,7 +1,6 @@
 # wxShot
 
-Menu-bar-less macOS screenshot tool that replaces WeChat's screenshot when WeChat is not signed in. Pure AppKit, SwiftPM, no third-party code except the
-vendored PermissionFlow.
+Menu-bar-less macOS screenshot tool that replaces WeChat's screenshot when WeChat is not signed in. Pure AppKit, SwiftPM, zero third-party code.
 
 ## Build and verify
 - `swift build` / `swift test` for development. `scripts/build.sh` builds `dist/wxShot.app` (ad-hoc signed).
@@ -12,7 +11,7 @@ vendored PermissionFlow.
 - Debug-only: `WXSHOT_SNAPSHOT=<dir> [WXSHOT_LANG=zh|en|…] .build/debug/wxShot` renders the real settings/onboarding/toolbar windows to PNG, then quits.
 
 ## Architecture
-- No Xcode project: SwiftPM builds the executable; `scripts/build.sh` hand-assembles the `.app` from the binary, `Sources/wxShot/App/Info.plist` (the real bundle metadata — the app's own version is bumped there, in `CFBundleShortVersionString`), the `Resources/*.lproj` folders, and PermissionFlow's generated resource bundle. Copying that bundle is mandatory: its permission panel crashes at first show without `Bundle.module`.
+- No Xcode project: SwiftPM builds the executable; `scripts/build.sh` hand-assembles the `.app` from the binary, `Sources/wxShot/App/Info.plist` (the real bundle metadata — the app's own version is bumped there, in `CFBundleShortVersionString`) and the `Resources/*.lproj` folders.
 - `App/main.swift` runs a plain AppKit loop (Info.plist sets `LSUIElement`: no Dock icon) and first installs a minimal Edit menu — AppKit text fields need it for ⌘C/⌘V/⌘A even though no menu is ever visible. `AppDelegate` then enforces single instance (a second launch terminates itself) and maps "app opened again" to "open Settings".
 - The product premise lives in `Coexistence/WeChatMonitor.swift`: workspace notifications plus CGWindowList window geometry (no extra permissions, no polling) classify WeChat as `notRunning` / `loginScreen` / `loggedIn`. `AppDelegate.applyHotkeyState()` re-runs on every `.hotkeyDidChange` / `.weChatStateDidChange` and registers the ⌃⌘A hotkey in `Trigger/HotkeyManager.swift` only while `WeChatMonitor.shouldOwnShortcut()` is true.
 - Capture is one session at a time: `AppDelegate.overlayController` is the only slot, and the hotkey is ignored while it is occupied. Hotkey → `startCapture` → `Capture/OverlayWindowController.swift` (~2000 lines; the state machine for the freeze-frame overlay, `SelectionView` region selection, magnifier, window detection) → `Capture/ImageEditLauncher.swift` → the editor. Suspending the editor parks a `SuspendedEditDraft`; pressing the shortcut again resumes it instead of starting over. On completion the image goes to the clipboard via `ImageOutputEncoder` + `ClipboardManager` and the slot clears.

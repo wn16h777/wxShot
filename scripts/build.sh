@@ -35,11 +35,8 @@ cp "$BIN/$NAME" "$APP/Contents/MacOS/$NAME"
 cp Sources/wxShot/App/Info.plist "$APP/Contents/Info.plist"
 [ -n "${BUILD_NUMBER:-}" ] && /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" "$APP/Contents/Info.plist"
 
-# 本地化与 SwiftPM 资源包（PermissionFlow 的授权面板需要 Bundle.module，缺了会在首次弹面板时崩溃）
+# 本地化
 for lproj in Resources/*.lproj; do cp -R "$lproj" "$APP/Contents/Resources/"; done
-FOUND=0
-for b in "$BIN"/*_PermissionFlow.bundle; do [ -d "$b" ] && cp -R "$b" "$APP/Contents/Resources/" && FOUND=1; done
-[ "$FOUND" = 1 ] || { echo "error: 找不到 PermissionFlow 资源包，授权面板会崩溃" >&2; exit 1; }
 
 echo "▶ 图标"
 [ -f dist/AppIcon.icns ] || swift scripts/make_icon.swift "viewfinder" "messages" dist/AppIcon.icns

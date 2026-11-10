@@ -11,23 +11,8 @@ let package = Package(
         .executable(name: "wxShot", targets: ["wxShot"])
     ],
     targets: [
-        .target(
-            name: "SystemSettingsKit",
-            path: "ThirdParty/PermissionFlow/Sources/SystemSettingsKit"
-        ),
-        .target(
-            name: "PermissionFlow",
-            dependencies: ["SystemSettingsKit"],
-            path: "ThirdParty/PermissionFlow/Sources/PermissionFlow",
-            resources: [
-                .process("Resources")
-            ]
-        ),
         .executableTarget(
             name: "wxShot",
-            dependencies: [
-                "PermissionFlow"
-            ],
             path: "Sources/wxShot",
             exclude: ["App/Info.plist"],
             linkerSettings: [

@@ -24,7 +24,7 @@ swift build && swift test   # 开发
 scripts/build.sh            # dist/wxShot.app(ad-hoc 签名)
 ```
 
-需要完整 Xcode(含 vendored PermissionFlow 的 SwiftUI 宏);Command Line Tools 单独无法编译。
+需要完整 Xcode;Command Line Tools 单独无法编译本项目。
 
 ## 与上游的差异
 
