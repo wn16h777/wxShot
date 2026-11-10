@@ -49,50 +49,20 @@ enum L10n {
     private static func s(_ key: String) -> String { Localizer.string(key) }
 
     // Settings
-    static var settingsTitle: String { s("settingsTitle") }
     static var showMenuBarIcon: String { s("showMenuBarIcon") }
     static var permissionsHeader: String { s("permissionsHeader") }
-    static var accessibilityPermission: String { s("accessibilityPermission") }
     static var accessibilityDescription: String { s("accessibilityDescription") }
-    static var screenRecordingPermission: String { s("screenRecordingPermission") }
-    static var screenRecordingDescription: String { s("screenRecordingDescription") }
-    static var launchApp: String { s("launchApp") }
     static var launchAtLogin: String { s("launchAtLogin") }
     static var pinAcrossSpaces: String { s("pinAcrossSpaces") }
-    static var pinAcrossSpacesHint: String { s("pinAcrossSpacesHint") }
-    static var windowShadowToggleLabel: String { s("windowShadowToggleLabel") }
-    static var windowShadowToggleHint: String { s("windowShadowToggleHint") }
-    static var windowShadowSizeLabel: String { s("windowShadowSizeLabel") }
-    static var windowShadowSizeHint: String { s("windowShadowSizeHint") }
-    static var savePathTitle: String { s("savePathTitle") }
-    static var savePathSubtitle: String { s("savePathSubtitle") }
-    static var askSaveLocationLabel: String { s("askSaveLocationLabel") }
-    static var askSaveLocationHint: String { s("askSaveLocationHint") }
-    static var autoRevealSavedFilesLabel: String { s("autoRevealSavedFilesLabel") }
-    static var autoRevealSavedFilesHint: String { s("autoRevealSavedFilesHint") }
-    static var screenshotSavePathLabel: String { s("screenshotSavePathLabel") }
-    static var savePathChoose: String { s("savePathChoose") }
-    static var savePathReveal: String { s("savePathReveal") }
-    static var chooseRecordingSavePathTitle: String { s("chooseRecordingSavePathTitle") }
-    static var chooseScreenshotSavePathTitle: String { s("chooseScreenshotSavePathTitle") }
-    static var screenshotQualityTitle: String { s("screenshotQualityTitle") }
-    static var screenshotQualitySubtitle: String { s("screenshotQualitySubtitle") }
-    static var screenshotQualityUploadLabel: String { s("screenshotQualityUploadLabel") }
-    static var screenshotQualitySaveLabel: String { s("screenshotQualitySaveLabel") }
-    static var screenshotQualityClipboardLabel: String { s("screenshotQualityClipboardLabel") }
     static var screenshotQualityOriginal: String { s("screenshotQualityOriginal") }
     static var screenshotQualityOriginalHint: String { s("screenshotQualityOriginalHint") }
     static var screenshotQualityCompressed: String { s("screenshotQualityCompressed") }
     static var screenshotQualityCompressedHint: String { s("screenshotQualityCompressedHint") }
-    static var screenshotQualityCompressingUpload: String { s("screenshotQualityCompressingUpload") }
     static var screenshotQualityCompressingSave: String { s("screenshotQualityCompressingSave") }
     static var screenshotQualityCompressingClipboard: String { s("screenshotQualityCompressingClipboard") }
     static var screenshotCompressionFailed: String { s("screenshotCompressionFailed") }
 
     // Screenshot shortcut
-    static var shortcutHeader: String { s("shortcutHeader") }
-    static var shortcutHint: String { s("shortcutHint") }
-    static var shortcutDefaultDisplay: String { s("shortcutDefaultDisplay") }
     static var shortcutSet: String { s("shortcutSet") }
     static var shortcutCancel: String { s("shortcutCancel") }
     static var shortcutWaiting: String { s("shortcutWaiting") }
@@ -101,80 +71,35 @@ enum L10n {
     static var shortcutRestore: String { s("shortcutRestore") }
 
     // Pin-image shortcut
-    static var quickPinShortcutHeader: String { s("quickPinShortcutHeader") }
-    static var quickPinShortcutDefaultDisplay: String { s("quickPinShortcutDefaultDisplay") }
-    static var quickPinShortcutClear: String { s("quickPinShortcutClear") }
-    static var pinFromFinderHint: String { s("pinFromFinderHint") }
-    static var pinFromClipboardHint: String { s("pinFromClipboardHint") }
-    static var pinFromClipboardTextHint: String { s("pinFromClipboardTextHint") }
     static var pinToolbarClose: String { s("pinToolbarClose") }
     static var pinToolbarCopy: String { s("pinToolbarCopy") }
     static var pinToolbarDrag: String { s("pinToolbarDrag") }
     static var pinToolbarEdit: String { s("pinToolbarEdit") }
     static var pinToolbarEditText: String { s("pinToolbarEditText") }
 
-    static var textRecognitionShortcutHeader: String { s("textRecognitionShortcutHeader") }
-    static var textRecognitionShortcutDefaultDisplay: String { s("textRecognitionShortcutDefaultDisplay") }
-    static var copyImageTextShortcutHeader: String { s("copyImageTextShortcutHeader") }
-    static var copyImageTextShortcutDefaultDisplay: String { s("copyImageTextShortcutDefaultDisplay") }
-    static var recordShortcutHeader: String { s("recordShortcutHeader") }
-    static var recordShortcutDefaultDisplay: String { s("recordShortcutDefaultDisplay") }
-    static var fileUploadShortcutHeader: String { s("fileUploadShortcutHeader") }
-    static var fullScreenScreenshotShortcutHeader: String { s("fullScreenScreenshotShortcutHeader") }
-    static var fullScreenScreenshotShortcutDefaultDisplay: String { s("fullScreenScreenshotShortcutDefaultDisplay") }
-
     // Magnifier lens panel (overlay magnifier lens panel)
     static var magnifierLensPanelCoordinatesLabel: String { s("magnifierLensPanelCoordinatesLabel") }
     static var magnifierLensPanelColorValueLabel: String { s("magnifierLensPanelColorValueLabel") }
     static var magnifierLensPanelCoordinates: String { s("magnifierLensPanelCoordinates") }
-    static var magnifierLensPanelHex: String { s("magnifierLensPanelHex") }
     static var magnifierLensPanelRgb: String { s("magnifierLensPanelRgb") }
-    static var magnifierLensPanelCopyHint: String { s("magnifierLensPanelCopyHint") }
-    static var magnifierLensPanelFormatHint: String { s("magnifierLensPanelFormatHint") }
     static var magnifierLensPanelAspectFree: String { s("magnifierLensPanelAspectFree") }
-    static var magnifierLensPanelAspectHint: String { s("magnifierLensPanelAspectHint") }
     static func magnifierLensPanelRgbString(r: Int, g: Int, b: Int) -> String {
         String(format: s("magnifierLensPanelRgbString"), r, g, b)
     }
 
     // Copy-to-clipboard shortcut (editor confirm)
-    static var clipboardShortcutHeader: String { s("clipboardShortcutHeader") }
-    static var clipboardShortcutHint: String { s("clipboardShortcutHint") }
-    static var clipboardShortcutDefaultDisplay: String { s("clipboardShortcutDefaultDisplay") }
-
     // Save-to-file shortcut (editor save)
-    static var fileSaveShortcutHeader: String { s("fileSaveShortcutHeader") }
-    static var fileSaveShortcutHint: String { s("fileSaveShortcutHint") }
-
     // Shortcut conflict
     static var shortcutConflictTitle: String { s("shortcutConflictTitle") }
     static var shortcutConflictScreenshot: String { s("shortcutConflictScreenshot") }
-    static var shortcutConflictCountdown: String { s("shortcutConflictCountdown") }
     static var shortcutConflictQuickPin: String { s("shortcutConflictQuickPin") }
-    static var shortcutConflictSelectedImagePin: String { s("shortcutConflictSelectedImagePin") }
-    static var shortcutConflictClipboardImagePin: String { s("shortcutConflictClipboardImagePin") }
-    static var shortcutConflictClipboardTextPin: String { s("shortcutConflictClipboardTextPin") }
     static var shortcutConflictClipboard: String { s("shortcutConflictClipboard") }
     static var shortcutConflictFileSave: String { s("shortcutConflictFileSave") }
-    static var shortcutConflictPreviousHistoryImage: String { s("shortcutConflictPreviousHistoryImage") }
-    static var shortcutConflictNextHistoryImage: String { s("shortcutConflictNextHistoryImage") }
-    static var shortcutConflictHistoryPanel: String { s("shortcutConflictHistoryPanel") }
-    static var shortcutConflictSelectedImageEdit: String { s("shortcutConflictSelectedImageEdit") }
-    static var shortcutConflictClipboardImageEdit: String { s("shortcutConflictClipboardImageEdit") }
-    static var shortcutConflictTextRecognition: String { s("shortcutConflictTextRecognition") }
-    static var shortcutConflictCopyImageText: String { s("shortcutConflictCopyImageText") }
-    static var shortcutConflictScreenshotTranslation: String { s("shortcutConflictScreenshotTranslation") }
-    static var shortcutConflictRecord: String { s("shortcutConflictRecord") }
-    static var shortcutConflictImageMerge: String { s("shortcutConflictImageMerge") }
-    static var shortcutConflictFileUpload: String { s("shortcutConflictFileUpload") }
     static var shortcutConflictFullScreenScreenshot: String { s("shortcutConflictFullScreenScreenshot") }
-    static var shortcutConflictColorPicker: String { s("shortcutConflictColorPicker") }
-
     // Menu bar
     static var takeScreenshot: String { s("takeScreenshot") }
     static var takeFullScreenScreenshot: String { s("takeFullScreenScreenshot") }
     static var record: String { s("record") }
-    static var mergeImages: String { s("mergeImages") }
     static var settings: String { s("settings") }
     static var quitApp: String { s("quitApp") }
 
@@ -185,22 +110,12 @@ enum L10n {
     static func dragToScreenshotAspect(_ ratio: String) -> String {
         String(format: s("dragToScreenshotAspect"), ratio)
     }
-    static var dragToTextRecognition: String { s("dragToTextRecognition") }
-    static var dragToCopyImageText: String { s("dragToCopyImageText") }
-    static var dragToScreenshotTranslation: String { s("dragToScreenshotTranslation") }
-    static var dragToRecord: String { s("dragToRecord") }
-    static var dragToRecordAspectFree: String { s("dragToRecordAspectFree") }
     static func dragToRecordAspect(_ ratio: String) -> String {
         String(format: s("dragToRecordAspect"), ratio)
     }
 
     // Toast
     static var copiedToClipboard: String { s("copiedToClipboard") }
-    static var mergedLongScreenshot: String { s("mergedLongScreenshot") }
-    static var autoScrollPermissionNeeded: String { s("autoScrollPermissionNeeded") }
-    static var cropLongScreenshotHint: String { s("cropLongScreenshotHint") }
-    static var scrollCaptureHint: String { s("scrollCaptureHint") }
-    static var scrollCaptureManualHint: String { s("scrollCaptureManualHint") }
     static var finderEditExitHint: String { s("finderEditExitHint") }
     static var clipboardEditExitHint: String { s("clipboardEditExitHint") }
     static var pinEditExitHint: String { s("pinEditExitHint") }
@@ -208,14 +123,8 @@ enum L10n {
     static var editSuspendedToast: String { s("editSuspendedToast") }
     static var editSuspendedResumeToast: String { s("editSuspendedResumeToast") }
     static var fullScreenScreenshotFailed: String { s("fullScreenScreenshotFailed") }
-    static var openImageNoImage: String { s("openImageNoImage") }
     static var mergeEditExitHint: String { s("mergeEditExitHint") }
-    static var saveRecording: String { s("saveRecording") }
-    static var saveRecordingPrompt: String { s("saveRecordingPrompt") }
-
     // Microphone permission row
-    static var microphonePermission: String { s("microphonePermission") }
-    static var microphoneDescription: String { s("microphoneDescription") }
     static func screenshotSaved(to path: String) -> String {
         String(format: s("screenshotSaved"), path)
     }
@@ -225,279 +134,90 @@ enum L10n {
     static func colorCopied(_ hex: String) -> String {
         String(format: s("colorCopied"), hex)
     }
-    static var qrCodeCopied: String { s("qrCodeCopied") }
-    static var qrCodeNotFound: String { s("qrCodeNotFound") }
-
     // Toolbar tooltips
     static var tipRectangle: String { s("tipRectangle") }
     static var tipEllipse: String { s("tipEllipse") }
     static var tipArrow: String { s("tipArrow") }
     static var tipLine: String { s("tipLine") }
     static var tipPen: String { s("tipPen") }
-    static var tipMarker: String { s("tipMarker") }
-    static var tipSpotlight: String { s("tipSpotlight") }
     static var tipMosaic: String { s("tipMosaic") }
-    static var mosaicGranularity: String { s("mosaicGranularity") }
     static var mosaicBlur: String { s("mosaicBlur") }
-    static var mosaicBlurAmount: String { s("mosaicBlurAmount") }
-    static var tipEraser: String { s("tipEraser") }
-    static var tipMagnifier: String { s("tipMagnifier") }
     static var tipNumbered: String { s("tipNumbered") }
     static var tipText: String { s("tipText") }
-    static var tipQRCode: String { s("tipQRCode") }
-    static var tipEmoji: String { s("tipEmoji") }
-    static var tipMoreEmoji: String { s("tipMoreEmoji") }
-    static var tipMoreBeautifyPresets: String { s("tipMoreBeautifyPresets") }
-    static var tipInsertImage: String { s("tipInsertImage") }
     static var tipColorPicker: String { s("tipColorPicker") }
     static var tipPickedInkBottle: String { s("tipPickedInkBottle") }
     static var tipUndo: String { s("tipUndo") }
     static var tipRedo: String { s("tipRedo") }
     static var tipMoveSelection: String { s("tipMoveSelection") }
-    static var tipScrollCapture: String { s("tipScrollCapture") }
-    static var tipBeautify: String { s("tipBeautify") }
-    static var tipRotate: String { s("tipRotate") }
-    static var tipRotateLeft: String { s("tipRotateLeft") }
-    static var tipRotateRight: String { s("tipRotateRight") }
-    static var tipOCR: String { s("tipOCR") }
-    static var tipScreenshotTranslate: String { s("tipScreenshotTranslate") }
     static var tipSave: String { s("tipSave") }
     static var tipPin: String { s("tipPin") }
-    static var tipRecord: String { s("tipRecord") }
     static var windowCapturePreparing: String { s("windowCapturePreparing") }
     static var tipCancel: String { s("tipCancel") }
     static var tipConfirm: String { s("tipConfirm") }
-    static var tipScrollCropConfirm: String { s("tipScrollCropConfirm") }
-    static var copyQRCodeContent: String { s("copyQRCodeContent") }
-
     // Text tool
     static var textStrokeEffect: String { s("textStrokeEffect") }
     static var textCalloutEffect: String { s("textCalloutEffect") }
-    static var textFontLabel: String { s("textFontLabel") }
-    static var textFontSystemDefault: String { s("textFontSystemDefault") }
-    static var textFontDefaultLabel: String { s("textFontDefaultLabel") }
-    static var textFontDefaultHint: String { s("textFontDefaultHint") }
-
     // Shape tool
-    static var shapeFillEffect: String { s("shapeFillEffect") }
-    static var shapeFillNone: String { s("shapeFillNone") }
-    static var shapeFillOpaque: String { s("shapeFillOpaque") }
-    static var shapeFillTranslucent: String { s("shapeFillTranslucent") }
-    static var shapeStyleStandard: String { s("shapeStyleStandard") }
     static var shapeStyleRounded: String { s("shapeStyleRounded") }
-    static var shapeStyleHandDrawn: String { s("shapeStyleHandDrawn") }
     static var arrowStyleTapered: String { s("arrowStyleTapered") }
     static var arrowStyleDoubleEnded: String { s("arrowStyleDoubleEnded") }
     static var arrowStyleLine: String { s("arrowStyleLine") }
     static var arrowStyleDotTail: String { s("arrowStyleDotTail") }
 
     // Insert tools
-    static var insertImageFromClipboard: String { s("insertImageFromClipboard") }
-    static var insertImageFromFile: String { s("insertImageFromFile") }
-    static var insertImageChooseFile: String { s("insertImageChooseFile") }
-    static var insertImageNoClipboardImage: String { s("insertImageNoClipboardImage") }
-    static var scrollCaptureAutoScroll: String { s("scrollCaptureAutoScroll") }
-    static var scrollCaptureManualScroll: String { s("scrollCaptureManualScroll") }
-
     // Language
-    static var languageHeader: String { s("languageHeader") }
-
     // Settings sidebar tabs
-    static var settingsTabGeneral: String { s("settingsTabGeneral") }
-    static var settingsGeneralBasic: String { s("settingsGeneralBasic") }
-    static var settingsGeneralCapture: String { s("settingsGeneralCapture") }
-    static var settingsGeneralRecording: String { s("settingsGeneralRecording") }
-    static var settingsGeneralHistory: String { s("settingsGeneralHistory") }
-    static var settingsGeneralFiles: String { s("settingsGeneralFiles") }
-    static var settingsTabShortcuts: String { s("settingsTabShortcuts") }
-    static var settingsTabPermissions: String { s("settingsTabPermissions") }
-    static var settingsTabUpload: String { s("settingsTabUpload") }
-    static var settingsTabAbout: String { s("settingsTabAbout") }
-    static var settingsTabTranslation: String { s("settingsTabTranslation") }
-    static var settingsTabToolbar: String { s("settingsTabToolbar") }
-    static var settingsQuit: String { s("settingsQuit") }
-
     // Toolbar settings
-    static var toolbarSettingsPrimaryTitle: String { s("toolbarSettingsPrimaryTitle") }
-    static var toolbarSettingsPrimaryHint: String { s("toolbarSettingsPrimaryHint") }
-    static var toolbarSettingsSideTitle: String { s("toolbarSettingsSideTitle") }
-    static var toolbarSettingsSideHint: String { s("toolbarSettingsSideHint") }
-    static var toolbarSettingsHiddenTitle: String { s("toolbarSettingsHiddenTitle") }
-    static var toolbarSettingsHiddenHint: String { s("toolbarSettingsHiddenHint") }
-    static var toolbarSettingsFootnote: String { s("toolbarSettingsFootnote") }
-    static var toolbarSettingsShortcutHint: String { s("toolbarSettingsShortcutHint") }
     static func toolbarSettingsShortcutRecording(_ action: String) -> String {
         String(format: s("toolbarSettingsShortcutRecording"), action)
     }
-    static var toolbarSettingsShortcutRecord: String { s("toolbarSettingsShortcutRecord") }
-    static var toolbarSettingsShortcutClear: String { s("toolbarSettingsShortcutClear") }
-    static var toolbarSettingsShortcutRestore: String { s("toolbarSettingsShortcutRestore") }
-    static var toolbarSettingsShortcutResetAll: String { s("toolbarSettingsShortcutResetAll") }
-    static var toolbarSettingsShortcutNone: String { s("toolbarSettingsShortcutNone") }
-    static var toolbarSettingsShortcutUnavailable: String { s("toolbarSettingsShortcutUnavailable") }
-    static var toolbarSettingsAdditionalShortcuts: String { s("toolbarSettingsAdditionalShortcuts") }
-    static var toolbarSettingsReset: String { s("toolbarSettingsReset") }
-    static var toolbarSettingsCancel: String { s("toolbarSettingsCancel") }
-    static var toolbarSettingsApply: String { s("toolbarSettingsApply") }
-    static var editorShortcutSelect: String { s("editorShortcutSelect") }
-    static var editorShortcutShapeFill: String { s("editorShortcutShapeFill") }
     static func editorShortcutConflict(_ action: String) -> String {
         String(format: s("editorShortcutConflict"), action)
     }
-    static var editorShortcutReserved: String { s("editorShortcutReserved") }
-
     // About pane
-    static var aboutTagline: String { s("aboutTagline") }
-    static var aboutLicense: String { s("aboutLicense") }
-    static var aboutSourceCode: String { s("aboutSourceCode") }
-    static var aboutStarOnGitHub: String { s("aboutStarOnGitHub") }
-    static var aboutFeatureRequest: String { s("aboutFeatureRequest") }
-    static var aboutBugReport: String { s("aboutBugReport") }
-    static var aboutUpdateTitle: String { s("aboutUpdateTitle") }
-
     // Error log — About pane
-    static var aboutErrorLog: String { s("aboutErrorLog") }
-    static var aboutErrorLogNoCrash: String { s("aboutErrorLogNoCrash") }
     static func aboutErrorLogLastCrash(_ date: String) -> String {
         String(format: s("aboutErrorLogLastCrash"), date)
     }
-    static var aboutErrorLogCopy: String { s("aboutErrorLogCopy") }
-    static var aboutErrorLogCopied: String { s("aboutErrorLogCopied") }
-    static var aboutErrorLogReveal: String { s("aboutErrorLogReveal") }
-    static var aboutErrorLogRefresh: String { s("aboutErrorLogRefresh") }
-    static var aboutErrorLogClear: String { s("aboutErrorLogClear") }
-    static var aboutErrorLogEmptyBody: String { s("aboutErrorLogEmptyBody") }
-
     // Updates — About pane
-    static var checkForUpdates: String { s("checkForUpdates") }
-    static var updateChecking: String { s("updateChecking") }
-    static var updateUpToDateStatus: String { s("updateUpToDateStatus") }
     static func updateNewVersionStatus(_ v: String) -> String {
         String(format: s("updateNewVersionStatus"), v)
     }
-    static var updateFailedStatus: String { s("updateFailedStatus") }
-    static var updateDownloadButton: String { s("updateDownloadButton") }
-    static var updateRetryButton: String { s("updateRetryButton") }
-    static var updateInstallNowButton: String { s("updateInstallNowButton") }
     static func updateDownloadingStatus(_ percent: Int) -> String {
         String(format: s("updateDownloadingStatus"), percent)
     }
-    static var updateInstallingStatus: String { s("updateInstallingStatus") }
-    static var updateInstallFailedStatus: String { s("updateInstallFailedStatus") }
-
     // Updates — menu bar
-    static var checkForUpdatesMenu: String { s("checkForUpdatesMenu") }
-    static var checkingForUpdatesMenu: String { s("checkingForUpdatesMenu") }
     static func updateAvailableMenu(_ v: String) -> String {
         String(format: s("updateAvailableMenu"), v)
     }
     static func updateDownloadingMenu(_ percent: Int) -> String {
         String(format: s("updateDownloadingMenu"), percent)
     }
-    static var updateInstallingMenu: String { s("updateInstallingMenu") }
-    static var updateInstallFailedMenu: String { s("updateInstallFailedMenu") }
-
     // Updates — progress HUD
-    static var updateCheckingHUD: String { s("updateCheckingHUD") }
     static func updateDownloadingHUD(_ percent: Int) -> String {
         String(format: s("updateDownloadingHUD"), percent)
     }
-    static var updateVerifyingHUD: String { s("updateVerifyingHUD") }
-    static var updateUnzippingHUD: String { s("updateUnzippingHUD") }
-    static var updateInstallingHUD: String { s("updateInstallingHUD") }
-
     // Updates — manual check result alert
     static func updateAvailableTitle(_ v: String) -> String {
         String(format: s("updateAvailableTitle"), v)
     }
-    static var updateAvailableBody: String { s("updateAvailableBody") }
-    static var updateUpToDateTitle: String { s("updateUpToDateTitle") }
     static func updateUpToDateBody(_ v: String) -> String {
         String(format: s("updateUpToDateBody"), v)
     }
-    static var updateFailedTitle: String { s("updateFailedTitle") }
-    static var updateFailedBody: String { s("updateFailedBody") }
-    static var updateInstallFailedTitle: String { s("updateInstallFailedTitle") }
-    static var updateInstallFailedBody: String { s("updateInstallFailedBody") }
-    static var updateOpenPageButton: String { s("updateOpenPageButton") }
-    static var updateSkipButton: String { s("updateSkipButton") }
-    static var updateLaterButton: String { s("updateLaterButton") }
-    static var updateOKButton: String { s("updateOKButton") }
-
     // Quit confirmation dialog
-    static var quitConfirmTitle: String { s("quitConfirmTitle") }
-    static var quitConfirmMessage: String { s("quitConfirmMessage") }
-    static var quitConfirmAction: String { s("quitConfirmAction") }
-    static var quitConfirmCancel: String { s("quitConfirmCancel") }
-
     // Upload — toolbar / toast / progress
-    static var tipUpload: String { s("tipUpload") }
-
-    static var filenameRuleTitle: String { s("filenameRuleTitle") }
-    static var filenameRuleSubtitle: String { s("filenameRuleSubtitle") }
-    static var filenameRulePresetLabel: String { s("filenameRulePresetLabel") }
-    static var filenameRulePresetCustom: String { s("filenameRulePresetCustom") }
-    static var filenameRulePresetShort: String { s("filenameRulePresetShort") }
-    static var filenameRulePresetCompact: String { s("filenameRulePresetCompact") }
-    static var filenameRulePresetUnique: String { s("filenameRulePresetUnique") }
-    static var filenameRulePresetCounter: String { s("filenameRulePresetCounter") }
-    static var filenameRulePresetRestore: String { s("filenameRulePresetRestore") }
-    static var filenameRuleImageLabel: String { s("filenameRuleImageLabel") }
-    static var filenameRuleRecordingLabel: String { s("filenameRuleRecordingLabel") }
-    static var filenameRuleVariablesLabel: String { s("filenameRuleVariablesLabel") }
-    static var filenameRuleVariableDate: String { s("filenameRuleVariableDate") }
-    static var filenameRuleVariableTime: String { s("filenameRuleVariableTime") }
-    static var filenameRuleVariableDaily: String { s("filenameRuleVariableDaily") }
-    static var filenameRuleVariableRandom: String { s("filenameRuleVariableRandom") }
-    static var filenameRuleVariableSize: String { s("filenameRuleVariableSize") }
     static func filenameRulePreview(_ value: String) -> String {
         String(format: s("filenameRulePreview"), value)
     }
 
     // Upload — provider names
-    static var providerTencentCOS: String { s("providerTencentCOS") }
-    static var providerQiniuKodo: String { s("providerQiniuKodo") }
-    static var providerAliyunOSS: String { s("providerAliyunOSS") }
-
     static func missingField(_ key: String) -> String {
         String(format: s("missingField"), key)
     }
 
     // Permissions — status label
-    static var permissionGranted: String { s("permissionGranted") }
-    static var permissionNotGranted: String { s("permissionNotGranted") }
-
     // OCR & Translation — result panel
-    static var ocrTextHeader: String { s("ocrTextHeader") }
-    static var ocrRecognizing: String { s("ocrRecognizing") }
-    static var ocrNoText: String { s("ocrNoText") }
-    static var ocrCopy: String { s("ocrCopy") }
-    static var ocrCopied: String { s("ocrCopied") }
-    static var ocrRetry: String { s("ocrRetry") }
-    static var ocrTranslating: String { s("ocrTranslating") }
-    static var ocrTranslateFailedPrefix: String { s("ocrTranslateFailedPrefix") }
-    static var ocrNoProviderTitle: String { s("ocrNoProviderTitle") }
-    static var ocrNoProviderHint: String { s("ocrNoProviderHint") }
-    static var ocrOpenSettings: String { s("ocrOpenSettings") }
-    static var ocrLineCopied: String { s("ocrLineCopied") }
-    static var copyImageTextCopying: String { s("copyImageTextCopying") }
-    static var copyImageTextCopied: String { s("copyImageTextCopied") }
-    static var copyImageTextNoText: String { s("copyImageTextNoText") }
-    static var dictionaryEntryLabel: String { s("dictionaryEntryLabel") }
-    static var dictionaryPhoneticLabel: String { s("dictionaryPhoneticLabel") }
-    static var dictionaryPartOfSpeechLabel: String { s("dictionaryPartOfSpeechLabel") }
-    static var dictionaryDefinitionLabel: String { s("dictionaryDefinitionLabel") }
-    static var dictionaryExampleLabel: String { s("dictionaryExampleLabel") }
-    static var dictionaryDifficultyLabel: String { s("dictionaryDifficultyLabel") }
-    static var dictionaryNoProviderTitle: String { s("dictionaryNoProviderTitle") }
-    static var dictionaryNoProviderHint: String { s("dictionaryNoProviderHint") }
-
     // Translation — target language names
-    static var transLangChinese: String { s("transLangChinese") }
-    static var transLangEnglish: String { s("transLangEnglish") }
-    static var transLangJapanese: String { s("transLangJapanese") }
-    static var transLangKorean: String { s("transLangKorean") }
-
 }
 
 struct Defaults {
@@ -942,19 +662,6 @@ struct Defaults {
         set { defaults.set(newValue, forKey: "lastNumberSizeTier") }
     }
 
-    static var lastMarkerColorHex: String? {
-        get {
-            normalizedHexColor(defaults.string(forKey: "lastMarkerColorHex"))
-        }
-        set {
-            if let normalized = normalizedHexColor(newValue) {
-                defaults.set(normalized, forKey: "lastMarkerColorHex")
-            } else {
-                defaults.removeObject(forKey: "lastMarkerColorHex")
-            }
-        }
-    }
-
 
     static var lastMosaicSizeTier: Int {
         get { tierValue("lastMosaicSizeTier") }
@@ -974,7 +681,6 @@ struct Defaults {
     }
 
 
-    static let textFontSizeTiers: [Double] = [14, 20, 30]
 
     static var lastFontSizeTier: Int {
         get { tierValue("lastFontSizeTier") }
