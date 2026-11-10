@@ -51,7 +51,11 @@ if [ "$SIGN" = "-" ]; then
 elif [ "$MAS" = 1 ]; then
   codesign --force --deep --options runtime --entitlements scripts/mas.entitlements -s "$SIGN" "$APP"
 else
-  codesign --force --deep --options runtime --timestamp --entitlements scripts/entitlements.plist -s "$SIGN" "$APP"
+  # Secure timestamps are for Developer ID distribution; Apple Development
+  # (local) signing skips them — the timestamp service is often unreachable
+  # behind a proxy and a dev cert needs no timestamp.
+  TS=""; [[ "$SIGN" == "Developer ID"* ]] && TS="--timestamp"
+  codesign --force --deep --options runtime $TS --entitlements scripts/entitlements.plist -s "$SIGN" "$APP"
 fi
 codesign --verify --deep --strict "$APP"
 echo "   架构: $(lipo -archs "$APP/Contents/MacOS/$NAME")"
