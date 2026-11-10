@@ -3,9 +3,9 @@
 Menu-bar-less macOS screenshot tool that replaces WeChat's screenshot when WeChat is not signed in. Pure AppKit, SwiftPM, zero third-party code.
 
 ## Build and verify
-- `swift build` / `swift test` for development. `scripts/build.sh` builds `dist/wxShot.app` (ad-hoc signed).
+- `swift build` / `swift test` for development (full Xcode required — Command Line Tools alone cannot build this project). `scripts/build.sh` builds `dist/wxShot.app` (ad-hoc signed).
 - Single test: `swift test --filter LogicTests/testWeChatOwnership` (tests are pure-logic only; nothing needs Screen Recording).
-- Release: `scripts/build.sh --universal --sign "Developer ID Application: …" --dmg --notarize` (keychain profile `MY_NTFSTOOL`).
+- Release: `scripts/build.sh --universal --sign "Developer ID Application: …" --dmg`. Notarization was dropped (with `scripts/notarize.sh`); do not reintroduce it.
 - Debug-only: `WXSHOT_DEBUG_CAPTURE=1 .build/debug/wxShot` opens the capture overlay at launch.
 - Debug-only: `WXSHOT_SNAPSHOT=<dir> [WXSHOT_LANG=zh|en|…] .build/debug/wxShot` renders the real settings/onboarding/toolbar windows to PNG, then quits.
 

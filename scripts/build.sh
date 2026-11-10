@@ -1,17 +1,16 @@
 #!/bin/bash
-# 构建 wxShot.app（可选通用二进制 / Developer ID 签名 / DMG / 公证）。
-# 用法: scripts/build.sh [--universal] [--sign "Developer ID Application: …"] [--dmg] [--notarize]
+# 构建 wxShot.app（可选通用二进制 / Developer ID 签名 / DMG）。
+# 用法: scripts/build.sh [--universal] [--sign "Developer ID Application: …"] [--dmg]
 # 默认：当前架构、ad-hoc 签名（本机可运行，不能分发）。
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"; cd "$ROOT"
 
-UNIVERSAL=0; SIGN="-"; DMG=0; NOTARIZE=0
+UNIVERSAL=0; SIGN="-"; DMG=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --universal) UNIVERSAL=1;;
     --sign) SIGN="$2"; shift;;
     --dmg) DMG=1;;
-    --notarize) NOTARIZE=1;;
     *) echo "未知参数: $1"; exit 2;;
   esac; shift
 done
@@ -52,15 +51,12 @@ fi
 codesign --verify --deep --strict "$APP"
 echo "   架构: $(lipo -archs "$APP/Contents/MacOS/$NAME")"
 
-[ "$NOTARIZE" = 1 ] && { echo "▶ 公证并盖章 App"; scripts/notarize.sh "$APP"; }
-
 if [ "$DMG" = 1 ]; then
   STAGE="$OUT/.dmg-stage"; rm -rf "$STAGE"; mkdir -p "$STAGE"; cp -R "$APP" "$STAGE/"; ln -s /Applications "$STAGE/Applications"
   DMG_PATH="$OUT/$NAME.dmg"; rm -f "$DMG_PATH"
   hdiutil create -volname "$NAME" -srcfolder "$STAGE" -ov -format UDZO "$DMG_PATH" >/dev/null
   rm -rf "$STAGE"
   [ "$SIGN" != "-" ] && codesign --force --sign "$SIGN" --timestamp "$DMG_PATH"
-  [ "$NOTARIZE" = 1 ] && { echo "▶ 公证并盖章 DMG"; scripts/notarize.sh "$DMG_PATH"; }
   echo "▶ DMG: $DMG_PATH ($(du -h "$DMG_PATH" | cut -f1))   版本 $VERSION"
 fi
 echo "✅ $APP ($(du -sh "$APP" | cut -f1))"
