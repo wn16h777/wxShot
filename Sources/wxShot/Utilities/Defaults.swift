@@ -505,9 +505,12 @@ struct Defaults {
         UserDefaults.standard
     }
 
-    /// Reads a persisted size-tier index; anything outside 0...2 (including
-    /// legacy continuous values) falls back to the medium tier.
+    /// Reads a persisted size-tier index; a missing key or anything outside
+    /// 0...2 (including legacy continuous values) falls back to the medium
+    /// tier — `integer(forKey:)` returns 0 for absent keys, so the presence
+    /// check must come first or a fresh install would default to small.
     private static func tierValue(_ key: String) -> Int {
+        guard defaults.object(forKey: key) != nil else { return 1 }
         let raw = defaults.integer(forKey: key)
         return (0...2).contains(raw) ? raw : 1
     }
