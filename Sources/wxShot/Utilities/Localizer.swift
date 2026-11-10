@@ -42,23 +42,8 @@ enum Localizer {
     /// English, then to the raw key, so a missing entry is visible rather than
     /// crashing or blanking the UI.
     static func string(_ key: String) -> String {
-        #if MAS
-        return neutralized(rawString(key))
-        #else
-        return rawString(key)
-        #endif
+        rawString(key)
     }
-
-    #if MAS
-    /// The App Store build never names third-party chat apps in the UI (guideline 5.2); the direct-download build does.
-    private static func neutralized(_ text: String) -> String {
-        switch Defaults.language {
-        case .zh: return text.replacingOccurrences(of: "微信", with: "聊天软件")
-        case .zhTW: return text.replacingOccurrences(of: "微信", with: "聊天軟體")
-        default: return text.replacingOccurrences(of: "WeChat", with: "Chat app")
-        }
-    }
-    #endif
 
     private static func rawString(_ key: String) -> String {
         let lang = Defaults.language
