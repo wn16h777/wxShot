@@ -42,12 +42,10 @@ struct EditorShortcutBinding: Codable, Equatable {
 
 enum EditorShortcutAction: Hashable {
     case select
-    case shapeFill
     case toolbar(ToolbarItemID)
 
     static let allCases: [EditorShortcutAction] = [
         .select,
-        .shapeFill,
     ] + ToolbarLayout.canonicalOrder
         .filter(\.supportsEditorShortcut)
         .map(EditorShortcutAction.toolbar)
@@ -55,7 +53,6 @@ enum EditorShortcutAction: Hashable {
     var persistenceKey: String {
         switch self {
         case .select: return "select"
-        case .shapeFill: return "shapeFill"
         case .toolbar(let item): return "toolbar.\(item.rawValue)"
         }
     }
@@ -63,7 +60,6 @@ enum EditorShortcutAction: Hashable {
     var localizedTitle: String {
         switch self {
         case .select: return L10n.editorShortcutSelect
-        case .shapeFill: return L10n.editorShortcutShapeFill
         case .toolbar(let item): return item.localizedTitle
         }
     }
@@ -74,9 +70,6 @@ enum EditorShortcutAction: Hashable {
         switch self {
         case .select:
             keyCode = kVK_ANSI_V
-            modifiers = 0
-        case .shapeFill:
-            keyCode = kVK_ANSI_F
             modifiers = 0
         case .toolbar(.rectangle):
             keyCode = kVK_ANSI_R

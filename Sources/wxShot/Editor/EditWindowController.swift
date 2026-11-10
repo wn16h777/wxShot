@@ -241,7 +241,6 @@ class EditWindowController {
     /// Whether new text annotations render as callout bubbles with an arrow handle.
     private var currentTextCallout: Bool = Defaults.lastTextCallout
     /// Whether new rectangle/ellipse annotations are filled.
-    private var currentShapeFillMode: ShapeFillMode = Defaults.lastShapeFillMode
     private var currentShapeStrokeStyle: ShapeStrokeStyle = Defaults.lastShapeStrokeStyle
     /// Last color sampled from the toolbar eyedropper. Persisted locally and
     /// shown as an ink-bottle control for color-capable annotation tools.
@@ -686,7 +685,6 @@ class EditWindowController {
         canvasView?.currentFontName = currentFontName
         canvasView?.currentTextStroke = currentTextStroke
         canvasView?.currentTextCallout = currentTextCallout
-        canvasView?.currentShapeFillMode = currentShapeFillMode
         canvasView?.currentShapeStrokeStyle = currentShapeStrokeStyle
     }
 
@@ -725,12 +723,10 @@ class EditWindowController {
         case let r as RectAnnotation:
             currentColor = r.color
             currentLineWidth = r.lineWidth
-            currentShapeFillMode = r.fillMode
             currentShapeStrokeStyle = r.strokeStyle
         case let e as EllipseAnnotation:
             currentColor = e.color
             currentLineWidth = e.lineWidth
-            currentShapeFillMode = e.fillMode
             currentShapeStrokeStyle = e.strokeStyle == .rounded ? .standard : e.strokeStyle
         case let a as ArrowAnnotation:
             currentColor = a.color
@@ -777,7 +773,6 @@ class EditWindowController {
                 width: ColorSizeSubToolbar.preferredWidth(
                     sizes: EditorStyleDefaults.standardLineSizes,
                     dynamicColor: pickedColorSwatch,
-                    showsShapeFillModes: false,
                     showsArrowStyles: true
                 ),
                 onSize: { [weak self] size in
@@ -796,16 +791,11 @@ class EditWindowController {
                 width: ColorSizeSubToolbar.preferredWidth(
                     sizes: EditorStyleDefaults.standardLineSizes,
                     dynamicColor: pickedColorSwatch,
-                    showsShapeFillModes: true,
                     showsShapeStrokeStyles: true,
                     shapeStrokePreviewShape: tool == .ellipse ? .ellipse : .rectangle
                 ),
                 onSize: { [weak self] size in
                     self?.setCurrentDrawingLineWidth(size)
-                },
-                shapeFillMode: currentShapeFillMode,
-                onShapeFillMode: { [weak self] mode in
-                    self?.setShapeFillMode(mode)
                 },
                 shapeStrokeStyle: currentShapeStrokeStyle,
                 shapeStrokePreviewShape: tool == .ellipse ? .ellipse : .rectangle,
@@ -843,8 +833,6 @@ class EditWindowController {
         sizeMaxValue: CGFloat = CGFloat(Defaults.editorLineWidthMax),
         onColor: ((NSColor) -> Void)? = nil,
         onSize: ((CGFloat) -> Void)? = nil,
-        shapeFillMode: ShapeFillMode? = nil,
-        onShapeFillMode: ((ShapeFillMode) -> Void)? = nil,
         shapeStrokeStyle: ShapeStrokeStyle? = nil,
         shapeStrokePreviewShape: ShapeStrokePreviewShape = .rectangle,
         onShapeStrokeStyle: ((ShapeStrokeStyle) -> Void)? = nil,
@@ -856,7 +844,6 @@ class EditWindowController {
         let resolvedWidth = width ?? ColorSizeSubToolbar.preferredWidth(
             sizes: sizes,
             dynamicColor: dynamicColor,
-            showsShapeFillModes: shapeFillMode != nil,
             showsArrowStyles: arrowStyle != nil,
             showsShapeStrokeStyles: shapeStrokeStyle != nil,
             shapeStrokePreviewShape: shapeStrokePreviewShape
@@ -878,7 +865,6 @@ class EditWindowController {
             currentSize: currentSize,
             sizeMinValue: sizeMinValue,
             sizeMaxValue: sizeMaxValue,
-            shapeFillMode: shapeFillMode,
             shapeStrokeStyle: shapeStrokeStyle,
             shapeStrokePreviewShape: shapeStrokePreviewShape,
             arrowStyle: arrowStyle
@@ -904,7 +890,6 @@ class EditWindowController {
         view.onSizeEnded = { [weak self] in
             self?.canvasView?.commitSelectionAdjustment()
         }
-        view.onShapeFillModeChanged = onShapeFillMode
         view.onShapeStrokeStyleChanged = onShapeStrokeStyle
         view.onArrowStyleChanged = onArrowStyle
         styleFloatingHUD(view)
@@ -1310,12 +1295,6 @@ class EditWindowController {
         }
     }
 
-    private func setShapeFillMode(_ mode: ShapeFillMode) {
-        currentShapeFillMode = mode
-        canvasView?.currentShapeFillMode = mode
-        Defaults.lastShapeFillMode = mode
-        canvasView?.mutateSelectedAnnotationAtomic { $0.withShapeFillMode(mode) }
-    }
 
     private func setShapeStrokeStyle(_ style: ShapeStrokeStyle) {
         currentShapeStrokeStyle = style
@@ -1496,29 +1475,12 @@ class EditWindowController {
         switch shortcut {
         case .select:
             selectTool(.none)
-        case .shapeFill:
-            return toggleShapeFillFromKeyboard()
         case .toolbar(let item):
             return performToolbarItem(item, togglesSelectedTool: false)
         }
         return true
     }
 
-    private func toggleShapeFillFromKeyboard() -> Bool {
-        guard activeTool == .rectangle || activeTool == .ellipse else { return false }
-        let nextMode: ShapeFillMode
-        switch currentShapeFillMode {
-        case .none:
-            nextMode = .opaque
-        case .opaque:
-            nextMode = .translucent
-        case .translucent:
-            nextMode = .none
-        }
-        setShapeFillMode(nextMode)
-        showSubToolbar(for: activeTool)
-        return true
-    }
 
     private func confirm() {
         guard !deferUntilWindowCaptureReady(.confirm) else { return }
@@ -2307,27 +2269,23 @@ private class ColorSizeSubToolbar: NSView {
     var currentColor: NSColor = EditorStyleDefaults.primaryColor
     var currentSize: CGFloat = 3.0
     var currentArrowStyle: ArrowStyle?
-    var currentShapeFillMode: ShapeFillMode?
     var currentShapeStrokeStyle: ShapeStrokeStyle?
     var onColorChanged: ((NSColor) -> Void)?
     var onSizeBegan: (() -> Void)?
     var onSizeChanged: ((CGFloat) -> Void)?
     var onSizeEnded: (() -> Void)?
     var onArrowStyleChanged: ((ArrowStyle) -> Void)?
-    var onShapeFillModeChanged: ((ShapeFillMode) -> Void)?
     var onShapeStrokeStyleChanged: ((ShapeStrokeStyle) -> Void)?
 
     private var sizeSlider: HUDSlider?
     private var colorButtons: [NSView] = []
     private var arrowStyleButtons: [ArrowStyleButtonView] = []
-    private var shapeFillModeControl: ShapeFillModeSegmentedControl?
     private var shapeStrokeStyleButtons: [ShapeStrokeStyleButtonView] = []
 
     private let sizes: [CGFloat]
     private let sizeMinValue: CGFloat
     private let sizeMaxValue: CGFloat
     private let dynamicColor: NSColor?
-    private let showsShapeFillModes: Bool
     private let showsShapeStrokeStyles: Bool
     private let shapeStrokePreviewShape: ShapeStrokePreviewShape
     private let baseColors: [NSColor] = EditorStyleDefaults.paletteColors
@@ -2353,7 +2311,6 @@ private class ColorSizeSubToolbar: NSView {
     static func preferredWidth(
         sizes: [CGFloat],
         dynamicColor: NSColor?,
-        showsShapeFillModes: Bool,
         showsArrowStyles: Bool = false,
         showsShapeStrokeStyles: Bool = false,
         shapeStrokePreviewShape: ShapeStrokePreviewShape = .rectangle
@@ -2379,10 +2336,6 @@ private class ColorSizeSubToolbar: NSView {
         let colorCount = baseColorCount + (dynamicColor == nil ? 0.0 : 1.0)
         x += colorCount * swatchSize + max(colorCount - 1, 0) * swatchGap
 
-        if showsShapeFillModes {
-            x += separatorGap + 1 + arrowStyleGap
-            x += ShapeFillModeSegmentedControl.preferredWidth()
-        }
 
         return ceil(x + trailingPad)
     }
@@ -2404,7 +2357,6 @@ private class ColorSizeSubToolbar: NSView {
         currentSize: CGFloat = 3.0,
         sizeMinValue: CGFloat = CGFloat(Defaults.editorLineWidthMin),
         sizeMaxValue: CGFloat = CGFloat(Defaults.editorLineWidthMax),
-        shapeFillMode: ShapeFillMode? = nil,
         shapeStrokeStyle: ShapeStrokeStyle? = nil,
         shapeStrokePreviewShape: ShapeStrokePreviewShape = .rectangle,
         arrowStyle: ArrowStyle? = nil
@@ -2415,10 +2367,8 @@ private class ColorSizeSubToolbar: NSView {
         self.currentColor = currentColor
         self.dynamicColor = dynamicColor
         self.currentSize = min(max(currentSize, sizeMinValue), max(sizeMinValue, sizeMaxValue))
-        self.currentShapeFillMode = shapeFillMode
         self.currentShapeStrokeStyle = shapeStrokeStyle
         self.currentArrowStyle = arrowStyle
-        self.showsShapeFillModes = shapeFillMode != nil
         self.showsShapeStrokeStyles = shapeStrokeStyle != nil
         self.shapeStrokePreviewShape = shapeStrokePreviewShape
         super.init(frame: frame)
@@ -2545,29 +2495,6 @@ private class ColorSizeSubToolbar: NSView {
 
         let lastSectionRightEdge = x - ColorSizeSubToolbar.swatchGap
 
-        if showsShapeFillModes {
-            let fillSepX = lastSectionRightEdge + ColorSizeSubToolbar.separatorGap
-            let fillSep = AdaptiveSeparatorView(frame: NSRect(x: fillSepX, y: 6, width: 1, height: bounds.height - 12))
-            addSubview(fillSep)
-
-            x = fillSepX + 1 + ColorSizeSubToolbar.arrowStyleGap
-            let controlWidth = ShapeFillModeSegmentedControl.preferredWidth()
-            let control = ShapeFillModeSegmentedControl(
-                frame: NSRect(
-                    x: x,
-                    y: midY - ShapeFillModeSegmentedControl.preferredHeight / 2,
-                    width: controlWidth,
-                    height: ShapeFillModeSegmentedControl.preferredHeight
-                ),
-                selectedMode: currentShapeFillMode ?? .none
-            )
-            control.onSelect = { [weak self] mode in
-                self?.currentShapeFillMode = mode
-                self?.onShapeFillModeChanged?(mode)
-            }
-            addSubview(control)
-            shapeFillModeControl = control
-        }
     }
 
     @objc private func sizeSliderChanged(_ sender: HUDSlider) {
@@ -2614,9 +2541,6 @@ private class ColorSizeSubToolbar: NSView {
         }
     }
 
-    private func updateShapeFillModeSelection() {
-        shapeFillModeControl?.selectedMode = currentShapeFillMode ?? .none
-    }
 
     private func updateShapeStrokeStyleSelection() {
         for view in shapeStrokeStyleButtons {
@@ -3709,122 +3633,6 @@ final class HUDSlider: NSControl {
 
     private func displayText(for rawValue: Double) -> String {
         "\(Int(rawValue.rounded()))"
-    }
-}
-
-private final class ShapeFillModeSegmentedControl: NSView {
-    static let preferredHeight: CGFloat = 24
-    private static let minSegmentWidth: CGFloat = 54
-    private static let segmentHorizontalPadding: CGFloat = 18
-    private static let font = NSFont.systemFont(ofSize: 12, weight: .semibold)
-    private static let modes = ShapeFillMode.allCases
-
-    var selectedMode: ShapeFillMode {
-        didSet { needsDisplay = true }
-    }
-    var onSelect: ((ShapeFillMode) -> Void)?
-
-    init(frame: NSRect, selectedMode: ShapeFillMode) {
-        self.selectedMode = selectedMode
-        super.init(frame: frame)
-        toolTip = "\(L10n.shapeFillEffect) (F)"
-        wantsLayer = true
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    static func preferredWidth() -> CGFloat {
-        segmentWidths().reduce(0, +)
-    }
-
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-
-    override func resetCursorRects() {
-        super.resetCursorRects()
-        addCursorRect(bounds, cursor: .pointingHand)
-    }
-
-    override func mouseDown(with event: NSEvent) {
-        let point = convert(event.locationInWindow, from: nil)
-        guard let mode = mode(atX: point.x) else { return }
-        selectedMode = mode
-        onSelect?(mode)
-    }
-
-    override func draw(_ dirtyRect: NSRect) {
-        let rect = bounds.insetBy(dx: 0.5, dy: 0.5)
-        let background = NSBezierPath(roundedRect: rect, xRadius: 7, yRadius: 7)
-        AdaptiveChrome.cardBackground.setFill()
-        background.fill()
-
-        let widths = Self.segmentWidths()
-        var x = rect.minX
-        for (index, mode) in Self.modes.enumerated() {
-            let width = widths[index]
-            let segmentRect = NSRect(x: x, y: rect.minY, width: width, height: rect.height)
-            if mode == selectedMode {
-                let selected = NSBezierPath(roundedRect: segmentRect.insetBy(dx: 0.5, dy: 0.5), xRadius: 7, yRadius: 7)
-                accentGreen.setFill()
-                selected.fill()
-            } else if index > 0 {
-                AdaptiveChrome.separator.setStroke()
-                let sep = NSBezierPath()
-                sep.move(to: NSPoint(x: x, y: rect.minY + 4))
-                sep.line(to: NSPoint(x: x, y: rect.maxY - 4))
-                sep.lineWidth = 1
-                sep.stroke()
-            }
-            drawTitle(for: mode, in: segmentRect)
-            x += width
-        }
-
-        AdaptiveChrome.border.setStroke()
-        background.lineWidth = 1
-        background.stroke()
-    }
-
-    private static func segmentWidths() -> [CGFloat] {
-        modes.map { mode in
-            let textWidth = ceil((title(for: mode) as NSString).size(withAttributes: [.font: font]).width)
-            return max(minSegmentWidth, textWidth + segmentHorizontalPadding)
-        }
-    }
-
-    private static func title(for mode: ShapeFillMode) -> String {
-        switch mode {
-        case .none: return L10n.shapeFillNone
-        case .opaque: return L10n.shapeFillOpaque
-        case .translucent: return L10n.shapeFillTranslucent
-        }
-    }
-
-    private func mode(atX targetX: CGFloat) -> ShapeFillMode? {
-        let widths = Self.segmentWidths()
-        var x: CGFloat = 0
-        for (index, width) in widths.enumerated() {
-            if targetX >= x && targetX <= x + width {
-                return Self.modes[index]
-            }
-            x += width
-        }
-        return nil
-    }
-
-    private func drawTitle(for mode: ShapeFillMode, in rect: NSRect) {
-        let selected = mode == selectedMode
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: Self.font,
-            .foregroundColor: selected ? NSColor.white : NSColor.labelColor,
-        ]
-        let title = Self.title(for: mode) as NSString
-        let size = title.size(withAttributes: attributes)
-        let point = NSPoint(
-            x: rect.midX - size.width / 2,
-            y: rect.midY - size.height / 2
-        )
-        title.draw(at: point, withAttributes: attributes)
     }
 }
 

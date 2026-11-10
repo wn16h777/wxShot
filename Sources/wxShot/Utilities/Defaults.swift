@@ -1060,20 +1060,6 @@ struct Defaults {
 
     /// Last rectangle/ellipse fill mode. Migrates the previous checkbox
     /// preference by treating its "on" state as the old opaque fill.
-    static var lastShapeFillMode: ShapeFillMode {
-        get {
-            guard let raw = defaults.string(forKey: "lastShapeFillMode"),
-                  let mode = ShapeFillMode(rawValue: raw) else {
-                return defaults.bool(forKey: "lastShapeFill") ? .opaque : .none
-            }
-            return mode
-        }
-        set {
-            defaults.set(newValue.rawValue, forKey: "lastShapeFillMode")
-            defaults.set(newValue.isFilled, forKey: "lastShapeFill")
-        }
-    }
-
     static var lastShapeStrokeStyle: ShapeStrokeStyle {
         get {
             guard let raw = defaults.string(forKey: "lastShapeStrokeStyle"),
@@ -1085,12 +1071,6 @@ struct Defaults {
         set {
             defaults.set(newValue.rawValue, forKey: "lastShapeStrokeStyle")
         }
-    }
-
-    /// Whether the rectangle/ellipse tool's legacy fill checkbox was last left on.
-    static var lastShapeFill: Bool {
-        get { lastShapeFillMode.isFilled }
-        set { lastShapeFillMode = newValue ? .opaque : .none }
     }
 
     static var lastArrowStyle: ArrowStyle {

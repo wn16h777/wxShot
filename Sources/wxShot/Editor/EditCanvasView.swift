@@ -87,7 +87,6 @@ class EditCanvasView: NSView {
         didSet { activeTextField?.hasCallout = currentTextCallout }
     }
     /// Fill mode for newly drawn rectangles/ellipses.
-    var currentShapeFillMode: ShapeFillMode = Defaults.lastShapeFillMode
     /// Border style for newly drawn rectangles/ellipses.
     var currentShapeStrokeStyle: ShapeStrokeStyle = Defaults.lastShapeStrokeStyle
     var currentLineWidth: CGFloat = EditorStyleDefaults.standardLineWidth
@@ -912,12 +911,12 @@ class EditCanvasView: NSView {
         }
         if let a = a as? RectAnnotation, let b = b as? RectAnnotation {
             return a.rect == b.rect && a.lineWidth == b.lineWidth
-                && a.fillMode == b.fillMode && a.strokeStyle == b.strokeStyle
+                && a.strokeStyle == b.strokeStyle
                 && a.rotation == b.rotation && a.color == b.color
         }
         if let a = a as? EllipseAnnotation, let b = b as? EllipseAnnotation {
             return a.rect == b.rect && a.lineWidth == b.lineWidth
-                && a.fillMode == b.fillMode && a.strokeStyle == b.strokeStyle
+                && a.strokeStyle == b.strokeStyle
                 && a.rotation == b.rotation && a.color == b.color
         }
         if let a = a as? ArrowAnnotation, let b = b as? ArrowAnnotation {
@@ -1278,7 +1277,6 @@ class EditCanvasView: NSView {
                         rect: rect,
                         color: currentColor,
                         lineWidth: currentLineWidth,
-                        fillMode: currentShapeFillMode,
                         strokeStyle: currentShapeStrokeStyle
                     ))
                 }
@@ -1296,7 +1294,6 @@ class EditCanvasView: NSView {
                         rect: rect,
                         color: currentColor,
                         lineWidth: currentLineWidth,
-                        fillMode: currentShapeFillMode,
                         strokeStyle: currentShapeStrokeStyle
                     ))
                 }
@@ -1410,7 +1407,6 @@ class EditCanvasView: NSView {
                     rect: rect,
                     color: currentColor,
                     lineWidth: currentLineWidth,
-                    fillMode: currentShapeFillMode,
                     strokeStyle: currentShapeStrokeStyle
                 ).draw(in: context, bounds: bounds)
             case .ellipse:
@@ -1419,7 +1415,6 @@ class EditCanvasView: NSView {
                     rect: rect,
                     color: currentColor,
                     lineWidth: currentLineWidth,
-                    fillMode: currentShapeFillMode,
                     strokeStyle: currentShapeStrokeStyle
                 ).draw(in: context, bounds: bounds)
             case .mosaic:
@@ -2206,10 +2201,6 @@ class EditCanvasView: NSView {
 
     private func drawsHoverBody(for annotation: Annotation) -> Bool {
         switch annotation {
-        case let rect as RectAnnotation:
-            return !rect.filled
-        case let ellipse as EllipseAnnotation:
-            return !ellipse.filled
         case is PenAnnotation,
              is ArrowAnnotation,
              is LineAnnotation,
@@ -2807,7 +2798,6 @@ class EditCanvasView: NSView {
                     rect: newRect,
                     color: rect.color,
                     lineWidth: rect.lineWidth,
-                    fillMode: rect.fillMode,
                     strokeStyle: rect.strokeStyle,
                     rotation: rect.rotation
                 )
@@ -2825,7 +2815,6 @@ class EditCanvasView: NSView {
                     rect: newRect,
                     color: ellipse.color,
                     lineWidth: ellipse.lineWidth,
-                    fillMode: ellipse.fillMode,
                     strokeStyle: ellipse.strokeStyle,
                     rotation: ellipse.rotation
                 )

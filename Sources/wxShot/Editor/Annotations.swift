@@ -37,8 +37,6 @@ protocol Annotation {
     func withColor(_ color: NSColor) -> Annotation
     func withLineWidth(_ lineWidth: CGFloat) -> Annotation
     func withFontSize(_ fontSize: CGFloat) -> Annotation
-    func withFill(_ filled: Bool) -> Annotation
-    func withShapeFillMode(_ fillMode: ShapeFillMode) -> Annotation
     func withShapeStrokeStyle(_ strokeStyle: ShapeStrokeStyle) -> Annotation
 }
 
@@ -49,8 +47,6 @@ extension Annotation {
     func withColor(_ color: NSColor) -> Annotation { self }
     func withLineWidth(_ lineWidth: CGFloat) -> Annotation { self }
     func withFontSize(_ fontSize: CGFloat) -> Annotation { self }
-    func withFill(_ filled: Bool) -> Annotation { self }
-    func withShapeFillMode(_ fillMode: ShapeFillMode) -> Annotation { self }
     func withShapeStrokeStyle(_ strokeStyle: ShapeStrokeStyle) -> Annotation { self }
 
     /// Wraps `draw` with the rotation transform if the annotation has any.
@@ -88,22 +84,6 @@ extension Annotation {
 
 private let strokeHitTolerance: CGFloat = 8
 
-enum ShapeFillMode: String, CaseIterable {
-    case none
-    case opaque
-    case translucent
-
-    var isFilled: Bool { self != .none }
-
-    var alpha: CGFloat {
-        switch self {
-        case .none: return 0
-        case .opaque: return 1
-        case .translucent: return 0.42
-        }
-    }
-}
-
 enum ShapeStrokeStyle: String, CaseIterable {
     case standard
     case rounded
@@ -129,31 +109,6 @@ private func distanceFrom(_ point: NSPoint, toSegmentFrom start: NSPoint, to end
 }
 
 private enum ShapeDrawing {
-    static func fillRect(_ rect: NSRect, color: NSColor, lineWidth: CGFloat, fillMode: ShapeFillMode, strokeStyle: ShapeStrokeStyle, in context: CGContext) {
-        guard fillMode.isFilled else { return }
-        context.saveGState()
-        context.setFillColor(color.withAlphaComponent(fillMode.alpha).cgColor)
-        switch strokeStyle {
-        case .standard:
-            context.fill(rect)
-        case .rounded:
-            context.addPath(roundedRectPath(rect, lineWidth: lineWidth))
-            context.fillPath()
-        }
-        context.restoreGState()
-    }
-
-    static func fillEllipse(_ rect: NSRect, color: NSColor, lineWidth: CGFloat, fillMode: ShapeFillMode, strokeStyle: ShapeStrokeStyle, in context: CGContext) {
-        guard fillMode.isFilled else { return }
-        context.saveGState()
-        context.setFillColor(color.withAlphaComponent(fillMode.alpha).cgColor)
-        switch strokeStyle {
-        case .standard, .rounded:
-            context.fillEllipse(in: rect)
-        }
-        context.restoreGState()
-    }
-
     static func strokeRect(_ rect: NSRect, color: NSColor, lineWidth: CGFloat, strokeStyle: ShapeStrokeStyle, in context: CGContext) {
         switch strokeStyle {
         case .standard:
@@ -406,7 +361,6 @@ struct RectAnnotation: Annotation {
     let rect: NSRect
     let color: NSColor
     let lineWidth: CGFloat
-    let fillMode: ShapeFillMode
     let strokeStyle: ShapeStrokeStyle
     var rotation: CGFloat = 0
 
@@ -414,34 +368,26 @@ struct RectAnnotation: Annotation {
         rect: NSRect,
         color: NSColor,
         lineWidth: CGFloat,
-        filled: Bool = false,
-        fillMode: ShapeFillMode? = nil,
         strokeStyle: ShapeStrokeStyle = .standard,
         rotation: CGFloat = 0
     ) {
         self.rect = rect
         self.color = color
         self.lineWidth = lineWidth
-        self.fillMode = fillMode ?? (filled ? .opaque : .none)
         self.strokeStyle = strokeStyle
         self.rotation = rotation
     }
 
     var boundingRect: NSRect { rect }
     var supportsRotation: Bool { true }
-    var filled: Bool { fillMode.isFilled }
 
     func draw(in context: CGContext, bounds: NSRect) {
-        ShapeDrawing.fillRect(rect, color: color, lineWidth: lineWidth, fillMode: fillMode, strokeStyle: strokeStyle, in: context)
         ShapeDrawing.strokeRect(rect, color: color, lineWidth: lineWidth, strokeStyle: strokeStyle, in: context)
     }
 
     func containsPoint(_ point: NSPoint) -> Bool {
         let p = unrotate(point)
         let path = ShapeDrawing.rectPath(rect, lineWidth: lineWidth, strokeStyle: strokeStyle)
-        if filled, path.contains(p) {
-            return true
-        }
         return strokedPathContains(path, point: p, lineWidth: lineWidth)
     }
 
@@ -450,7 +396,6 @@ struct RectAnnotation: Annotation {
             rect: rect.offsetBy(dx: delta.x, dy: delta.y),
             color: color,
             lineWidth: lineWidth,
-            fillMode: fillMode,
             strokeStyle: strokeStyle,
             rotation: rotation
         )
@@ -463,23 +408,15 @@ struct RectAnnotation: Annotation {
     }
 
     func withColor(_ color: NSColor) -> Annotation {
-        RectAnnotation(rect: rect, color: color, lineWidth: lineWidth, fillMode: fillMode, strokeStyle: strokeStyle, rotation: rotation)
+        RectAnnotation(rect: rect, color: color, lineWidth: lineWidth, strokeStyle: strokeStyle, rotation: rotation)
     }
 
     func withLineWidth(_ lineWidth: CGFloat) -> Annotation {
-        RectAnnotation(rect: rect, color: color, lineWidth: lineWidth, fillMode: fillMode, strokeStyle: strokeStyle, rotation: rotation)
-    }
-
-    func withFill(_ filled: Bool) -> Annotation {
-        RectAnnotation(rect: rect, color: color, lineWidth: lineWidth, filled: filled, strokeStyle: strokeStyle, rotation: rotation)
-    }
-
-    func withShapeFillMode(_ fillMode: ShapeFillMode) -> Annotation {
-        RectAnnotation(rect: rect, color: color, lineWidth: lineWidth, fillMode: fillMode, strokeStyle: strokeStyle, rotation: rotation)
+        RectAnnotation(rect: rect, color: color, lineWidth: lineWidth, strokeStyle: strokeStyle, rotation: rotation)
     }
 
     func withShapeStrokeStyle(_ strokeStyle: ShapeStrokeStyle) -> Annotation {
-        RectAnnotation(rect: rect, color: color, lineWidth: lineWidth, fillMode: fillMode, strokeStyle: strokeStyle, rotation: rotation)
+        RectAnnotation(rect: rect, color: color, lineWidth: lineWidth, strokeStyle: strokeStyle, rotation: rotation)
     }
 }
 
@@ -489,7 +426,6 @@ struct EllipseAnnotation: Annotation {
     let rect: NSRect
     let color: NSColor
     let lineWidth: CGFloat
-    let fillMode: ShapeFillMode
     let strokeStyle: ShapeStrokeStyle
     var rotation: CGFloat = 0
 
@@ -497,34 +433,26 @@ struct EllipseAnnotation: Annotation {
         rect: NSRect,
         color: NSColor,
         lineWidth: CGFloat,
-        filled: Bool = false,
-        fillMode: ShapeFillMode? = nil,
         strokeStyle: ShapeStrokeStyle = .standard,
         rotation: CGFloat = 0
     ) {
         self.rect = rect
         self.color = color
         self.lineWidth = lineWidth
-        self.fillMode = fillMode ?? (filled ? .opaque : .none)
         self.strokeStyle = strokeStyle
         self.rotation = rotation
     }
 
     var boundingRect: NSRect { rect }
     var supportsRotation: Bool { true }
-    var filled: Bool { fillMode.isFilled }
 
     func draw(in context: CGContext, bounds: NSRect) {
-        ShapeDrawing.fillEllipse(rect, color: color, lineWidth: lineWidth, fillMode: fillMode, strokeStyle: strokeStyle, in: context)
         ShapeDrawing.strokeEllipse(rect, color: color, lineWidth: lineWidth, strokeStyle: strokeStyle, in: context)
     }
 
     func containsPoint(_ point: NSPoint) -> Bool {
         let p = unrotate(point)
         let path = CGPath(ellipseIn: rect, transform: nil)
-        if filled, path.contains(p) {
-            return true
-        }
         return strokedPathContains(path, point: p, lineWidth: lineWidth)
     }
 
@@ -533,7 +461,6 @@ struct EllipseAnnotation: Annotation {
             rect: rect.offsetBy(dx: delta.x, dy: delta.y),
             color: color,
             lineWidth: lineWidth,
-            fillMode: fillMode,
             strokeStyle: strokeStyle,
             rotation: rotation
         )
@@ -546,23 +473,15 @@ struct EllipseAnnotation: Annotation {
     }
 
     func withColor(_ color: NSColor) -> Annotation {
-        EllipseAnnotation(rect: rect, color: color, lineWidth: lineWidth, fillMode: fillMode, strokeStyle: strokeStyle, rotation: rotation)
+        EllipseAnnotation(rect: rect, color: color, lineWidth: lineWidth, strokeStyle: strokeStyle, rotation: rotation)
     }
 
     func withLineWidth(_ lineWidth: CGFloat) -> Annotation {
-        EllipseAnnotation(rect: rect, color: color, lineWidth: lineWidth, fillMode: fillMode, strokeStyle: strokeStyle, rotation: rotation)
-    }
-
-    func withFill(_ filled: Bool) -> Annotation {
-        EllipseAnnotation(rect: rect, color: color, lineWidth: lineWidth, filled: filled, strokeStyle: strokeStyle, rotation: rotation)
-    }
-
-    func withShapeFillMode(_ fillMode: ShapeFillMode) -> Annotation {
-        EllipseAnnotation(rect: rect, color: color, lineWidth: lineWidth, fillMode: fillMode, strokeStyle: strokeStyle, rotation: rotation)
+        EllipseAnnotation(rect: rect, color: color, lineWidth: lineWidth, strokeStyle: strokeStyle, rotation: rotation)
     }
 
     func withShapeStrokeStyle(_ strokeStyle: ShapeStrokeStyle) -> Annotation {
-        EllipseAnnotation(rect: rect, color: color, lineWidth: lineWidth, fillMode: fillMode, strokeStyle: strokeStyle, rotation: rotation)
+        EllipseAnnotation(rect: rect, color: color, lineWidth: lineWidth, strokeStyle: strokeStyle, rotation: rotation)
     }
 }
 
