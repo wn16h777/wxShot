@@ -331,7 +331,7 @@ struct MosaicAnnotation: Annotation {
         self.pixelatedImage = pixelatedImage
         self.blockSize = blockSize
         self.style = style
-        self.blurRadius = CGFloat(Defaults.normalizedMosaicBlurRadius(Double(blurRadius)))
+        self.blurRadius = min(max(blurRadius, EditorStyleDefaults.mosaicBlurTiers[0]), EditorStyleDefaults.mosaicBlurTiers[2])
     }
 
     var boundingRect: NSRect { rect }
@@ -1230,7 +1230,6 @@ struct TextAnnotation: Annotation {
     let fontSize: CGFloat
     /// Font family name the glyphs are drawn with. `nil` keeps the historical
     /// system bold face, so existing annotations render exactly as before.
-    var fontName: String? = nil
     var rotation: CGFloat = 0
     /// When true the glyphs get a black-or-white outline picked for maximum
     /// contrast against `color`, so the text reads against any background.
@@ -1264,30 +1263,15 @@ struct TextAnnotation: Annotation {
     static let strokeWidthPercent: CGFloat = 6.0
 
     /// Single resolution entry point for every place that needs the text
-    /// annotation's face — drawing, measuring, the live editor field and the
-    /// font-preview menus. `nil` (or a family that is no longer installed)
-    /// resolves to the system bold face the tool has always used. An installed
-    /// family prefers its bold variant and falls back to the regular one.
-    static func font(named fontName: String?, size: CGFloat) -> NSFont {
-        let fallback = NSFont.systemFont(ofSize: size, weight: .bold)
-        guard let family = fontName, !family.isEmpty else { return fallback }
-        let manager = NSFontManager.shared
-        if let bold = manager.font(withFamily: family, traits: .boldFontMask, weight: 9, size: size) {
-            return bold
-        }
-        if let regular = manager.font(withFamily: family, traits: [], weight: 5, size: size) {
-            return regular
-        }
-        return NSFont(name: family, size: size) ?? fallback
-    }
-
+    /// annotation's face — drawing, measuring and the live editor field.
+    /// The tool always uses the system bold face.
     static func font(forSize size: CGFloat) -> NSFont {
-        font(named: nil, size: size)
+        NSFont.systemFont(ofSize: size, weight: .bold)
     }
 
     /// The face this annotation actually renders with.
     var resolvedFont: NSFont {
-        TextAnnotation.font(named: fontName, size: fontSize)
+        TextAnnotation.font(forSize: fontSize)
     }
 
     /// Light fills (white / yellow / green) get a black outline; every other
@@ -1875,7 +1859,6 @@ struct TextAnnotation: Annotation {
             origin: NSPoint(x: origin.x + delta.x, y: origin.y + delta.y),
             color: color,
             fontSize: fontSize,
-            fontName: fontName,
             rotation: rotation,
             hasStroke: hasStroke,
             hasCallout: hasCallout,
@@ -1892,7 +1875,6 @@ struct TextAnnotation: Annotation {
             origin: NSPoint(x: origin.x + delta.x, y: origin.y + delta.y),
             color: color,
             fontSize: fontSize,
-            fontName: fontName,
             rotation: rotation,
             hasStroke: hasStroke,
             hasCallout: hasCallout,
@@ -1917,7 +1899,6 @@ struct TextAnnotation: Annotation {
             origin: origin,
             color: color,
             fontSize: fontSize,
-            fontName: fontName,
             rotation: rotation,
             hasStroke: hasStroke,
             hasCallout: hasCallout,
@@ -1955,41 +1936,14 @@ struct TextAnnotation: Annotation {
     /// grow downward in canvas coords, so the origin shifts by the full text
     /// block height delta to keep the cap line steady.
     func withFontSize(_ fontSize: CGFloat) -> Annotation {
-        let oldFont = TextAnnotation.font(named: fontName, size: self.fontSize)
-        let newFont = TextAnnotation.font(named: fontName, size: fontSize)
-        let oldHeight = TextAnnotation.editorSize(for: text, font: oldFont).height
-        let newHeight = TextAnnotation.editorSize(for: text, font: newFont).height
+        let oldHeight = TextAnnotation.editorSize(for: text, font: TextAnnotation.font(forSize: self.fontSize)).height
+        let newHeight = TextAnnotation.editorSize(for: text, font: TextAnnotation.font(forSize: fontSize)).height
         let newOrigin = NSPoint(x: origin.x, y: origin.y + (oldHeight - newHeight))
         return TextAnnotation(
             text: text,
             origin: newOrigin,
             color: color,
             fontSize: fontSize,
-            fontName: fontName,
-            rotation: rotation,
-            hasStroke: hasStroke,
-            hasCallout: hasCallout,
-            calloutTip: calloutTip,
-            secondCalloutTip: secondCalloutTip
-        )
-    }
-
-    /// Re-typeset in another family at the same point size. Like
-    /// `withFontSize`, the visual cap line stays anchored: fonts grow downward
-    /// in canvas coords, so the origin absorbs the line-height delta instead of
-    /// letting the text jump when the face changes.
-    func withFontName(_ fontName: String?) -> TextAnnotation {
-        let oldFont = TextAnnotation.font(named: self.fontName, size: fontSize)
-        let newFont = TextAnnotation.font(named: fontName, size: fontSize)
-        let oldHeight = TextAnnotation.editorSize(for: text, font: oldFont).height
-        let newHeight = TextAnnotation.editorSize(for: text, font: newFont).height
-        let newOrigin = NSPoint(x: origin.x, y: origin.y + (oldHeight - newHeight))
-        return TextAnnotation(
-            text: text,
-            origin: newOrigin,
-            color: color,
-            fontSize: fontSize,
-            fontName: fontName,
             rotation: rotation,
             hasStroke: hasStroke,
             hasCallout: hasCallout,
@@ -2026,18 +1980,18 @@ struct NumberAnnotation: Annotation {
         controlPoint: NSPoint? = nil,
         number: Int,
         color: NSColor,
-        size: CGFloat = CGFloat(Defaults.numberSizeDefault)
+        size: CGFloat = EditorStyleDefaults.numberSizeTiers[1]
     ) {
         self.center = center
         self.tip = tip
         self.controlPoint = controlPoint
         self.number = number
         self.color = color
-        self.size = min(max(size, CGFloat(Defaults.numberSizeMin)), CGFloat(Defaults.numberSizeMax))
+        self.size = min(max(size, EditorStyleDefaults.numberSizeTiers[0]), EditorStyleDefaults.numberSizeTiers[2])
     }
 
     private var scale: CGFloat {
-        size / CGFloat(Defaults.numberSizeDefault)
+        size / EditorStyleDefaults.numberSizeTiers[1]
     }
 
     var radius: CGFloat { Self.baseRadius * scale }
@@ -2046,8 +2000,8 @@ struct NumberAnnotation: Annotation {
     var arrowMinDistance: CGFloat { radius + 6 * scale }
 
     static func arrowMinDistance(for size: CGFloat) -> CGFloat {
-        let clamped = min(max(size, CGFloat(Defaults.numberSizeMin)), CGFloat(Defaults.numberSizeMax))
-        let scale = clamped / CGFloat(Defaults.numberSizeDefault)
+        let clamped = min(max(size, EditorStyleDefaults.numberSizeTiers[0]), EditorStyleDefaults.numberSizeTiers[2])
+        let scale = clamped / EditorStyleDefaults.numberSizeTiers[1]
         return baseRadius * scale + 6 * scale
     }
 

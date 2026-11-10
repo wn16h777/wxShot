@@ -230,12 +230,10 @@ class EditWindowController {
     private var currentLineWidth: CGFloat = EditorStyleDefaults.standardLineWidth
     private var currentNumberSize: CGFloat = EditorStyleDefaults.numberSize
     private var currentArrowStyle: ArrowStyle = Defaults.lastArrowStyle
-    private var currentMosaicBlockSize: CGFloat = CGFloat(Defaults.mosaicBlockSize)
+    private var currentMosaicBlockSize: CGFloat = EditorStyleDefaults.mosaicSizeTiers[Defaults.lastMosaicSizeTier]
     private var currentMosaicStyle: MosaicStyle = Defaults.mosaicStyle
-    private var currentMosaicBlurRadius: CGFloat = CGFloat(Defaults.mosaicBlurRadius)
-    private var currentFontSize: CGFloat = CGFloat(Defaults.lastTextFontSize)
-    /// Font family for new text annotations. nil = the system bold default.
-    private var currentFontName: String? = Defaults.textFontName
+    private var currentMosaicBlurRadius: CGFloat = EditorStyleDefaults.mosaicBlurTiers[Defaults.lastMosaicBlurTier]
+    private var currentFontSize: CGFloat = EditorStyleDefaults.fontSizeTiers[Defaults.lastFontSizeTier]
     /// Whether new text annotations get a contrast outline.
     private var currentTextStroke: Bool = Defaults.lastTextStroke
     /// Whether new text annotations render as callout bubbles with an arrow handle.
@@ -682,7 +680,6 @@ class EditWindowController {
         canvasView?.currentMosaicStyle = currentMosaicStyle
         canvasView?.currentMosaicBlurRadius = currentMosaicBlurRadius
         canvasView?.currentFontSize = currentFontSize
-        canvasView?.currentFontName = currentFontName
         canvasView?.currentTextStroke = currentTextStroke
         canvasView?.currentTextCallout = currentTextCallout
         canvasView?.currentShapeStrokeStyle = currentShapeStrokeStyle
@@ -709,20 +706,19 @@ class EditWindowController {
         switch annotation {
         case let t as TextAnnotation:
             currentColor = t.color
-            currentFontSize = t.fontSize
-            currentFontName = t.fontName
+            currentFontSize = Self.nearestTierValue(for: t.fontSize, in: EditorStyleDefaults.fontSizeTiers)
             currentTextStroke = t.hasStroke
             currentTextCallout = t.hasCallout
         case let p as PenAnnotation:
             currentColor = p.color
-            currentLineWidth = p.lineWidth
+            currentLineWidth = Self.nearestTierValue(for: p.lineWidth, in: EditorStyleDefaults.lineWidthTiers)
         case let mosaic as MosaicAnnotation:
-            currentMosaicBlockSize = mosaic.blockSize
+            currentMosaicBlockSize = Self.nearestTierValue(for: mosaic.blockSize, in: EditorStyleDefaults.mosaicSizeTiers)
             currentMosaicStyle = mosaic.style
-            currentMosaicBlurRadius = mosaic.blurRadius
+            currentMosaicBlurRadius = Self.nearestTierValue(for: mosaic.blurRadius, in: EditorStyleDefaults.mosaicBlurTiers)
         case let r as RectAnnotation:
             currentColor = r.color
-            currentLineWidth = r.lineWidth
+            currentLineWidth = Self.nearestTierValue(for: r.lineWidth, in: EditorStyleDefaults.lineWidthTiers)
             currentShapeStrokeStyle = r.strokeStyle
         case let e as EllipseAnnotation:
             currentColor = e.color
@@ -758,25 +754,24 @@ class EditWindowController {
         switch tool {
         case .pen, .line:
             showColorSizeSubToolbar(
-                sizes: EditorStyleDefaults.standardLineSizes,
+                tiers: EditorStyleDefaults.lineWidthTiers,
+                currentTier: Defaults.lastLineWidthTier,
                 dynamicColor: pickedColorSwatch,
-                currentSize: currentLineWidth,
-                onSize: { [weak self] size in
-                    self?.setCurrentDrawingLineWidth(size)
+                onTier: { [weak self] tier in
+                    self?.setCurrentLineWidthTier(tier)
                 }
             )
         case .arrow:
             showColorSizeSubToolbar(
-                sizes: EditorStyleDefaults.standardLineSizes,
+                tiers: EditorStyleDefaults.lineWidthTiers,
+                currentTier: Defaults.lastLineWidthTier,
                 dynamicColor: pickedColorSwatch,
-                currentSize: currentLineWidth,
                 width: ColorSizeSubToolbar.preferredWidth(
-                    sizes: EditorStyleDefaults.standardLineSizes,
                     dynamicColor: pickedColorSwatch,
                     showsArrowStyles: true
                 ),
-                onSize: { [weak self] size in
-                    self?.setCurrentDrawingLineWidth(size)
+                onTier: { [weak self] tier in
+                    self?.setCurrentLineWidthTier(tier)
                 },
                 arrowStyle: currentArrowStyle,
                 onArrowStyle: { [weak self] style in
@@ -785,17 +780,16 @@ class EditWindowController {
             )
         case .rectangle, .ellipse:
             showColorSizeSubToolbar(
-                sizes: EditorStyleDefaults.standardLineSizes,
+                tiers: EditorStyleDefaults.lineWidthTiers,
+                currentTier: Defaults.lastLineWidthTier,
                 dynamicColor: pickedColorSwatch,
-                currentSize: currentLineWidth,
                 width: ColorSizeSubToolbar.preferredWidth(
-                    sizes: EditorStyleDefaults.standardLineSizes,
                     dynamicColor: pickedColorSwatch,
                     showsShapeStrokeStyles: true,
                     shapeStrokePreviewShape: tool == .ellipse ? .ellipse : .rectangle
                 ),
-                onSize: { [weak self] size in
-                    self?.setCurrentDrawingLineWidth(size)
+                onTier: { [weak self] tier in
+                    self?.setCurrentLineWidthTier(tier)
                 },
                 shapeStrokeStyle: currentShapeStrokeStyle,
                 shapeStrokePreviewShape: tool == .ellipse ? .ellipse : .rectangle,
@@ -807,13 +801,14 @@ class EditWindowController {
             showTextSubToolbar()
         case .numbered:
             showColorSizeSubToolbar(
-                sizes: [CGFloat(Defaults.numberSizeDefault)],
+                tiers: EditorStyleDefaults.numberSizeTiers,
+                currentTier: Defaults.lastNumberSizeTier,
                 dynamicColor: pickedColorSwatch,
-                currentSize: currentNumberSize,
-                sizeMinValue: CGFloat(Defaults.numberSizeMin),
-                sizeMaxValue: CGFloat(Defaults.numberSizeMax),
-                onSize: { [weak self] size in
-                    self?.setCurrentNumberSize(size)
+                onColor: { [weak self] color in
+                    self?.setCurrentDrawingColor(color)
+                },
+                onTier: { [weak self] tier in
+                    self?.setCurrentNumberSizeTier(tier)
                 }
             )
         case .mosaic:
@@ -824,15 +819,13 @@ class EditWindowController {
     }
 
     private func showColorSizeSubToolbar(
-        sizes: [CGFloat],
+        tiers: [CGFloat],
+        currentTier: Int,
         currentColor: NSColor? = nil,
         dynamicColor: NSColor? = nil,
-        currentSize: CGFloat,
         width: CGFloat? = nil,
-        sizeMinValue: CGFloat = CGFloat(Defaults.editorLineWidthMin),
-        sizeMaxValue: CGFloat = CGFloat(Defaults.editorLineWidthMax),
         onColor: ((NSColor) -> Void)? = nil,
-        onSize: ((CGFloat) -> Void)? = nil,
+        onTier: ((Int) -> Void)? = nil,
         shapeStrokeStyle: ShapeStrokeStyle? = nil,
         shapeStrokePreviewShape: ShapeStrokePreviewShape = .rectangle,
         onShapeStrokeStyle: ((ShapeStrokeStyle) -> Void)? = nil,
@@ -842,7 +835,6 @@ class EditWindowController {
         guard let hostSelectionView, let toolbarFrame = subToolbarAnchorFrame else { return }
         let offset: CGFloat = 0
         let resolvedWidth = width ?? ColorSizeSubToolbar.preferredWidth(
-            sizes: sizes,
             dynamicColor: dynamicColor,
             showsArrowStyles: arrowStyle != nil,
             showsShapeStrokeStyles: shapeStrokeStyle != nil,
@@ -859,12 +851,10 @@ class EditWindowController {
         let resolvedColor = currentColor ?? self.currentColor
         let view = ColorSizeSubToolbar(
             frame: subRect,
-            sizes: sizes,
+            tiers: tiers,
+            currentTier: currentTier,
             currentColor: resolvedColor,
             dynamicColor: dynamicColor,
-            currentSize: currentSize,
-            sizeMinValue: sizeMinValue,
-            sizeMaxValue: sizeMaxValue,
             shapeStrokeStyle: shapeStrokeStyle,
             shapeStrokePreviewShape: shapeStrokePreviewShape,
             arrowStyle: arrowStyle
@@ -880,14 +870,11 @@ class EditWindowController {
             // safe to make from every tool's color path.
             self?.canvasView?.mutateSelectedAnnotationAtomic { $0.withColor(color) }
         }
-        view.onSizeBegan = { [weak self] in
+        view.onTierChanged = { [weak self] tier in
             self?.canvasView?.beginSelectionAdjustment()
-        }
-        view.onSizeChanged = { [weak self] size in
-            onSize?(size)
-            self?.canvasView?.mutateSelectedAnnotationLive { $0.withLineWidth(size) }
-        }
-        view.onSizeEnded = { [weak self] in
+            onTier?(tier)
+            let value = tiers[tier]
+            self?.canvasView?.mutateSelectedAnnotationLive { $0.withLineWidth(value) }
             self?.canvasView?.commitSelectionAdjustment()
         }
         view.onShapeStrokeStyleChanged = onShapeStrokeStyle
@@ -911,8 +898,7 @@ class EditWindowController {
         let view = TextSubToolbar(
             frame: subRect,
             currentColor: currentColor,
-            currentFontSize: currentFontSize,
-            currentFontName: currentFontName,
+            currentFontTier: Defaults.lastFontSizeTier,
             dynamicColor: pickedColorSwatch,
             strokeEnabled: currentTextStroke,
             calloutEnabled: currentTextCallout
@@ -939,28 +925,12 @@ class EditWindowController {
                 (annotation as? TextAnnotation)?.withCallout(enabled) ?? annotation
             }
         }
-        view.onFontSizeBegan = { [weak self] in
-            self?.canvasView?.beginSelectionAdjustment()
-        }
-        view.onFontSizeChanged = { [weak self] size in
+        view.onFontSizeTierChanged = { [weak self] tier in
+            let size = EditorStyleDefaults.fontSizeTiers[tier]
             self?.currentFontSize = size
             self?.canvasView?.currentFontSize = size
-            Defaults.lastTextFontSize = Double(size)
-            self?.canvasView?.mutateSelectedAnnotationLive { $0.withFontSize(size) }
-        }
-        view.onFontSizeEnded = { [weak self] in
-            self?.canvasView?.commitSelectionAdjustment()
-        }
-        view.onFontNameChanged = { [weak self] fontName in
-            self?.currentFontName = fontName
-            self?.canvasView?.currentFontName = fontName
-            Defaults.textFontName = fontName
-            self?.canvasView?.mutateSelectedAnnotationAtomic { annotation in
-                (annotation as? TextAnnotation)?.withFontName(fontName) ?? annotation
-            }
-        }
-        view.onFontMenuClosed = { [weak self] in
-            self?.bringEditorToFront()
+            Defaults.lastFontSizeTier = tier
+            self?.canvasView?.mutateSelectedAnnotationAtomic { $0.withFontSize(size) }
         }
         styleFloatingHUD(view)
         hostSelectionView.addSubview(view)
@@ -981,14 +951,13 @@ class EditWindowController {
         let view = MosaicSubToolbar(
             frame: subRect,
             style: currentMosaicStyle,
-            blockSize: currentMosaicBlockSize,
-            blurRadius: currentMosaicBlurRadius
+            blockTier: Defaults.lastMosaicSizeTier,
+            blurTier: Defaults.lastMosaicBlurTier
         )
-        view.onAdjustmentBegan = { [weak self] in
-            self?.canvasView?.beginSelectionAdjustment()
-        }
-        view.onSettingsChanged = { [weak self] style, blockSize, blurRadius in
+        view.onSettingsChanged = { [weak self] style, tier in
             guard let self else { return }
+            let blockSize = EditorStyleDefaults.mosaicSizeTiers[tier]
+            let blurRadius = EditorStyleDefaults.mosaicBlurTiers[tier]
             self.currentMosaicStyle = style
             self.currentMosaicBlockSize = blockSize
             self.currentMosaicBlurRadius = blurRadius
@@ -996,15 +965,14 @@ class EditWindowController {
             self.canvasView?.currentMosaicBlockSize = blockSize
             self.canvasView?.currentMosaicBlurRadius = blurRadius
             Defaults.mosaicStyle = style
-            Defaults.mosaicBlockSize = Double(blockSize)
-            Defaults.mosaicBlurRadius = Double(blurRadius)
+            if style == .blur {
+                Defaults.lastMosaicBlurTier = tier
+            } else {
+                Defaults.lastMosaicSizeTier = tier
+            }
             self.canvasView?.mutateSelectedMosaicLive(
                 style: style, blockSize: blockSize, blurRadius: blurRadius
             )
-        }
-        view.onAdjustmentEnded = { [weak self] in
-            self?.canvasView?.commitSelectionAdjustment()
-            self?.bringEditorToFront()
         }
         styleFloatingHUD(view)
         hostSelectionView.addSubview(view)
@@ -1311,17 +1279,22 @@ class EditWindowController {
         }
     }
 
-    private func setCurrentDrawingLineWidth(_ size: CGFloat) {
+    private func setCurrentLineWidthTier(_ tier: Int) {
+        let size = EditorStyleDefaults.lineWidthTiers[tier]
         currentLineWidth = size
         canvasView?.currentLineWidth = size
-        Defaults.lastEditorLineWidth = Double(size)
+        Defaults.lastLineWidthTier = tier
     }
 
-    private func setCurrentNumberSize(_ size: CGFloat) {
-        let clamped = min(max(size, CGFloat(Defaults.numberSizeMin)), CGFloat(Defaults.numberSizeMax))
-        currentNumberSize = clamped
-        canvasView?.currentNumberSize = clamped
-        Defaults.lastNumberSize = Double(clamped)
+    private func setCurrentNumberSizeTier(_ tier: Int) {
+        let size = EditorStyleDefaults.numberSizeTiers[tier]
+        currentNumberSize = size
+        canvasView?.currentNumberSize = size
+        Defaults.lastNumberSizeTier = tier
+    }
+
+    private static func nearestTierValue(for value: CGFloat, in tiers: [CGFloat]) -> CGFloat {
+        tiers.min(by: { abs($0 - value) < abs($1 - value) }) ?? tiers[1]
     }
 
     private func setArrowStyle(_ style: ArrowStyle) {
@@ -2252,26 +2225,118 @@ private enum ShapeStrokePreviewShape {
     case ellipse
 }
 
+// MARK: - Tier size selector
+
+/// Three size presets rendered as dots whose diameter tracks the tier value.
+private class TierDotsView: NSView {
+    var onTierChanged: ((Int) -> Void)?
+    private(set) var selectedIndex: Int
+    private var dotViews: [TierDotView] = []
+
+    static let preferredWidth: CGFloat = 86
+    private static let slot: CGFloat = 28
+    private static let maxDot: CGFloat = 15
+    private static let minDot: CGFloat = 7
+
+    init(frame: NSRect, values: [CGFloat], selectedIndex: Int) {
+        self.selectedIndex = selectedIndex
+        super.init(frame: frame)
+        let maxValue = values.max() ?? 1
+        for (i, value) in values.enumerated() {
+            let ratio = maxValue > 0 ? CGFloat(value / maxValue) : 1
+            let dot = TierDotView(
+                frame: NSRect(x: CGFloat(i) * Self.slot, y: 0, width: Self.slot, height: bounds.height),
+                diameter: Self.minDot + (Self.maxDot - Self.minDot) * ratio,
+                isSelected: i == selectedIndex
+            )
+            dot.index = i
+            let click = NSClickGestureRecognizer(target: self, action: #selector(dotTapped(_:)))
+            dot.addGestureRecognizer(click)
+            addSubview(dot)
+            dotViews.append(dot)
+        }
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    func setSelectedIndex(_ index: Int) {
+        selectedIndex = index
+        for (i, dot) in dotViews.enumerated() {
+            dot.isSelected = i == index
+        }
+    }
+
+    /// Re-scale dot diameters for a new tier value set (e.g. mosaic style change).
+    func updateValues(_ values: [CGFloat], selectedIndex: Int) {
+        let maxValue = values.max() ?? 1
+        for (i, dot) in dotViews.enumerated() where i < values.count {
+            let ratio = maxValue > 0 ? CGFloat(values[i] / maxValue) : 1
+            dot.diameter = Self.minDot + (Self.maxDot - Self.minDot) * ratio
+        }
+        self.selectedIndex = selectedIndex
+        for (i, dot) in dotViews.enumerated() {
+            dot.isSelected = i == selectedIndex
+        }
+    }
+
+    @objc private func dotTapped(_ gesture: NSGestureRecognizer) {
+        guard let dot = gesture.view as? TierDotView, dotViews.indices.contains(dot.index) else { return }
+        let index = dot.index
+        setSelectedIndex(index)
+        onTierChanged?(index)
+    }
+}
+
+private class TierDotView: NSView {
+    var isSelected: Bool {
+        didSet { needsDisplay = true }
+    }
+    var diameter: CGFloat {
+        didSet { needsDisplay = true }
+    }
+    var index: Int = 0
+
+    init(frame: NSRect, diameter: CGFloat, isSelected: Bool) {
+        self.diameter = diameter
+        self.isSelected = isSelected
+        super.init(frame: frame)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        let rect = NSRect(
+            x: bounds.midX - diameter / 2,
+            y: bounds.midY - diameter / 2,
+            width: diameter,
+            height: diameter
+        )
+        (isSelected ? accentGreen : NSColor.secondaryLabelColor).setFill()
+        NSBezierPath(ovalIn: rect).fill()
+    }
+}
+
 private class ColorSizeSubToolbar: NSView {
     var currentColor: NSColor = EditorStyleDefaults.primaryColor
-    var currentSize: CGFloat = 3.0
     var currentArrowStyle: ArrowStyle?
     var currentShapeStrokeStyle: ShapeStrokeStyle?
     var onColorChanged: ((NSColor) -> Void)?
-    var onSizeBegan: (() -> Void)?
-    var onSizeChanged: ((CGFloat) -> Void)?
-    var onSizeEnded: (() -> Void)?
+    var onTierChanged: ((Int) -> Void)?
     var onArrowStyleChanged: ((ArrowStyle) -> Void)?
     var onShapeStrokeStyleChanged: ((ShapeStrokeStyle) -> Void)?
 
-    private var sizeSlider: HUDSlider?
+    private var tierDots: TierDotsView?
     private var colorButtons: [NSView] = []
     private var arrowStyleButtons: [ArrowStyleButtonView] = []
     private var shapeStrokeStyleButtons: [ShapeStrokeStyleButtonView] = []
 
-    private let sizes: [CGFloat]
-    private let sizeMinValue: CGFloat
-    private let sizeMaxValue: CGFloat
+    private let tiers: [CGFloat]
     private let dynamicColor: NSColor?
     private let showsShapeStrokeStyles: Bool
     private let shapeStrokePreviewShape: ShapeStrokePreviewShape
@@ -2282,7 +2347,6 @@ private class ColorSizeSubToolbar: NSView {
     }
 
     private static let leadingPad: CGFloat = 12
-    private static let sizeSliderWidth: CGFloat = 136
     private static let swatchSize: CGFloat = 18
     private static let swatchGap: CGFloat = 5
     private static let separatorGap: CGFloat = 6
@@ -2296,7 +2360,6 @@ private class ColorSizeSubToolbar: NSView {
     private static var baseColorCount: CGFloat { CGFloat(EditorStyleDefaults.paletteColors.count) }
 
     static func preferredWidth(
-        sizes: [CGFloat],
         dynamicColor: NSColor?,
         showsArrowStyles: Bool = false,
         showsShapeStrokeStyles: Bool = false,
@@ -2315,14 +2378,11 @@ private class ColorSizeSubToolbar: NSView {
             x += separatorGap + 1 + arrowStyleGap
         }
 
-        if !sizes.isEmpty {
-            x += sizeSliderWidth
-            x += 8 + 1 + 9
-        }
+        x += TierDotsView.preferredWidth
+        x += 8 + 1 + 9
 
         let colorCount = baseColorCount + (dynamicColor == nil ? 0.0 : 1.0)
         x += colorCount * swatchSize + max(colorCount - 1, 0) * swatchGap
-
 
         return ceil(x + trailingPad)
     }
@@ -2338,29 +2398,27 @@ private class ColorSizeSubToolbar: NSView {
 
     init(
         frame: NSRect,
-        sizes: [CGFloat] = [2, 4, 6],
+        tiers: [CGFloat],
+        currentTier: Int,
         currentColor: NSColor = .red,
         dynamicColor: NSColor? = nil,
-        currentSize: CGFloat = 3.0,
-        sizeMinValue: CGFloat = CGFloat(Defaults.editorLineWidthMin),
-        sizeMaxValue: CGFloat = CGFloat(Defaults.editorLineWidthMax),
         shapeStrokeStyle: ShapeStrokeStyle? = nil,
         shapeStrokePreviewShape: ShapeStrokePreviewShape = .rectangle,
         arrowStyle: ArrowStyle? = nil
     ) {
-        self.sizes = sizes
-        self.sizeMinValue = sizeMinValue
-        self.sizeMaxValue = max(sizeMinValue, sizeMaxValue)
+        self.tiers = tiers
         self.currentColor = currentColor
         self.dynamicColor = dynamicColor
-        self.currentSize = min(max(currentSize, sizeMinValue), max(sizeMinValue, sizeMaxValue))
         self.currentShapeStrokeStyle = shapeStrokeStyle
         self.currentArrowStyle = arrowStyle
         self.showsShapeStrokeStyles = shapeStrokeStyle != nil
         self.shapeStrokePreviewShape = shapeStrokePreviewShape
         super.init(frame: frame)
+        pendingTierIndex = min(max(currentTier, 0), tiers.count - 1)
         setup()
     }
+
+    private var pendingTierIndex: Int = 1
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
@@ -2426,35 +2484,23 @@ private class ColorSizeSubToolbar: NSView {
             addStyleSeparator()
         }
 
-        if !sizes.isEmpty {
-            let slider = HUDSlider(
-                value: Double(currentSize),
-                minValue: Double(sizeMinValue),
-                maxValue: Double(sizeMaxValue),
-                target: self,
-                action: #selector(sizeSliderChanged(_:))
-            )
-            slider.isContinuous = true
-            slider.frame = NSRect(
-                x: x,
-                y: midY - HUDSlider.preferredHeight / 2,
-                width: Self.sizeSliderWidth,
-                height: HUDSlider.preferredHeight
-            )
-            slider.onEditingBegan = { [weak self] in self?.onSizeBegan?() }
-            slider.onEditingEnded = { [weak self] in self?.onSizeEnded?() }
-            addSubview(slider)
-            sizeSlider = slider
-            x += Self.sizeSliderWidth
+        let dots = TierDotsView(
+            frame: NSRect(x: x, y: 0, width: TierDotsView.preferredWidth, height: bounds.height),
+            values: tiers,
+            selectedIndex: pendingTierIndex
+        )
+        dots.onTierChanged = { [weak self] index in
+            self?.onTierChanged?(index)
         }
+        addSubview(dots)
+        tierDots = dots
+        x += TierDotsView.preferredWidth
 
-        // Separator only when there's a size section to separate from.
-        if !sizes.isEmpty {
-            x += 8
-            let sep = AdaptiveSeparatorView(frame: NSRect(x: x, y: 6, width: 1, height: bounds.height - 12))
-            addSubview(sep)
-            x += 1 + 9
-        }
+        // Separator between tier dots and color swatches.
+        x += 8
+        let sep = AdaptiveSeparatorView(frame: NSRect(x: x, y: 6, width: 1, height: bounds.height - 12))
+        addSubview(sep)
+        x += 1 + 9
 
         // Color swatches. The dynamic picked color uses an ink-bottle glyph
         // rather than another static-looking palette dot.
@@ -2481,11 +2527,6 @@ private class ColorSizeSubToolbar: NSView {
         }
 
 
-    }
-
-    @objc private func sizeSliderChanged(_ sender: HUDSlider) {
-        currentSize = min(max(CGFloat(sender.doubleValue), sizeMinValue), sizeMaxValue)
-        onSizeChanged?(currentSize)
     }
 
     @objc private func colorTapped(_ gesture: NSGestureRecognizer) {
@@ -2552,24 +2593,22 @@ private class ColorSizeSubToolbar: NSView {
 
 private class MosaicSubToolbar: NSView {
     private var currentStyle: MosaicStyle
-    private var currentBlockSize: CGFloat
-    private var currentBlurRadius: CGFloat
-    var onAdjustmentBegan: (() -> Void)?
-    var onSettingsChanged: ((MosaicStyle, CGFloat, CGFloat) -> Void)?
-    var onAdjustmentEnded: (() -> Void)?
+    private var blockTier: Int
+    private var blurTier: Int
+    /// Reports the style plus the tier index of the style that is active.
+    var onSettingsChanged: ((MosaicStyle, Int) -> Void)?
 
-    private var slider: HUDSlider!
+    private var tierDots: TierDotsView?
     private var styleButtons: [ToolButton] = []
 
-    static let preferredWidth: CGFloat = 252
+    static let preferredWidth: CGFloat = 184
     private static let leadingPad: CGFloat = 12
     private static let buttonSize: CGFloat = 28
-    private static let sliderWidth: CGFloat = 154
 
-    init(frame: NSRect, style: MosaicStyle, blockSize: CGFloat, blurRadius: CGFloat) {
+    init(frame: NSRect, style: MosaicStyle, blockTier: Int, blurTier: Int) {
         self.currentStyle = style
-        self.currentBlockSize = blockSize
-        self.currentBlurRadius = blurRadius
+        self.blockTier = blockTier
+        self.blurTier = blurTier
         super.init(frame: frame)
         setup()
     }
@@ -2618,35 +2657,33 @@ private class MosaicSubToolbar: NSView {
         addSubview(separator)
         x += 10
 
-        let s = HUDSlider(
-            value: Double(currentBlockSize),
-            minValue: Defaults.mosaicBlockSizeMin,
-            maxValue: Defaults.mosaicBlockSizeMax,
-            target: self,
-            action: #selector(sliderChanged(_:))
+        let dots = TierDotsView(
+            frame: NSRect(x: x, y: 0, width: TierDotsView.preferredWidth, height: bounds.height),
+            values: currentStyle == .blur ? EditorStyleDefaults.mosaicBlurTiers : EditorStyleDefaults.mosaicSizeTiers,
+            selectedIndex: currentTierIndex
         )
-        s.isContinuous = true
-        s.frame = NSRect(
-            x: x,
-            y: midY - HUDSlider.preferredHeight / 2,
-            width: Self.sliderWidth,
-            height: HUDSlider.preferredHeight
-        )
-        s.onEditingBegan = { [weak self] in self?.onAdjustmentBegan?() }
-        s.onEditingEnded = { [weak self] in self?.onAdjustmentEnded?() }
-        addSubview(s)
-        slider = s
+        dots.onTierChanged = { [weak self] index in
+            guard let self else { return }
+            if self.currentStyle == .blur {
+                self.blurTier = index
+            } else {
+                self.blockTier = index
+            }
+            self.onSettingsChanged?(self.currentStyle, index)
+        }
+        addSubview(dots)
+        tierDots = dots
         updateControls()
     }
+
+    private var currentTierIndex: Int { currentStyle == .blur ? blurTier : blockTier }
 
     @objc private func styleChanged(_ sender: ToolButton) {
         let style: MosaicStyle = sender.tag == 0 ? .pixelate : .blur
         guard style != currentStyle else { return }
-        onAdjustmentBegan?()
         currentStyle = style
         updateControls()
-        onSettingsChanged?(currentStyle, currentBlockSize, currentBlurRadius)
-        onAdjustmentEnded?()
+        onSettingsChanged?(currentStyle, currentTierIndex)
     }
 
     private func updateControls() {
@@ -2655,22 +2692,10 @@ private class MosaicSubToolbar: NSView {
             button.isSelected = (index == 1) == isBlur
             button.setAccessibilityValue(button.isSelected ? 1 : 0)
         }
-        slider.minValue = isBlur ? Defaults.mosaicBlurRadiusMin : Defaults.mosaicBlockSizeMin
-        slider.maxValue = isBlur ? Defaults.mosaicBlurRadiusMax : Defaults.mosaicBlockSizeMax
-        slider.doubleValue = Double(isBlur ? currentBlurRadius : currentBlockSize)
-        let tip = isBlur ? L10n.mosaicBlurAmount : L10n.mosaicGranularity
-        slider.toolTip = tip
-        slider.setAccessibilityLabel(tip)
-    }
-
-    @objc private func sliderChanged(_ sender: HUDSlider) {
-        let value = CGFloat(min(max(sender.doubleValue, sender.minValue), sender.maxValue))
-        if currentStyle == .blur {
-            currentBlurRadius = value
-        } else {
-            currentBlockSize = value
-        }
-        onSettingsChanged?(currentStyle, currentBlockSize, currentBlurRadius)
+        tierDots?.updateValues(
+            isBlur ? EditorStyleDefaults.mosaicBlurTiers : EditorStyleDefaults.mosaicSizeTiers,
+            selectedIndex: currentTierIndex
+        )
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -2682,32 +2707,17 @@ private class MosaicSubToolbar: NSView {
 
 // MARK: - Text Sub-toolbar
 
-/// Text-tool sub-toolbar — color swatches plus a 10–100 font-size slider.
+/// Text-tool sub-toolbar — font-size tiers plus color swatches.
 private class TextSubToolbar: NSView {
     var currentColor: NSColor = .red
-    var currentFontSize: CGFloat = CGFloat(Defaults.lastTextFontSize)
-    var currentFontName: String? = Defaults.textFontName
     var strokeEnabled: Bool = false
     var calloutEnabled: Bool = false
     var onColorChanged: ((NSColor) -> Void)?
-    /// Fired when the user grabs the slider thumb (mouseDown phase).
-    var onFontSizeBegan: (() -> Void)?
-    /// Fired on every slider tick during a drag.
-    var onFontSizeChanged: ((CGFloat) -> Void)?
-    /// Fired when the user releases the slider (mouseUp phase).
-    var onFontSizeEnded: (() -> Void)?
-    /// Fired when the outline checkbox is toggled.
+    var onFontSizeTierChanged: ((Int) -> Void)?
     var onStrokeChanged: ((Bool) -> Void)?
-    /// Fired when the callout checkbox is toggled.
     var onCalloutChanged: ((Bool) -> Void)?
-    /// Fired when a font family is picked. nil = the system default.
-    var onFontNameChanged: ((String?) -> Void)?
-    /// Fired after the font menu is dismissed so the editor can take focus back.
-    var onFontMenuClosed: (() -> Void)?
 
     private var colorButtons: [NSView] = []
-    private var fontButton: HUDPopupButton!
-    private var slider: HUDSlider!
     private var strokeCheckbox: HUDCheckboxButton!
     private var calloutCheckbox: HUDCheckboxButton!
 
@@ -2721,32 +2731,12 @@ private class TextSubToolbar: NSView {
     // Layout metrics, shared between `setup()` and `preferredWidth` so the
     // view is always wide enough for everything it lays out.
     private static let leadingPad: CGFloat = 12
-    private static let fontButtonWidth: CGFloat = 116
-    private static let fontButtonHeight: CGFloat = 22
-    /// Gap between a control and the separator that follows it, mirroring the
-    /// `slider -> separator` spacing already used further down the row.
-    private static let sectionGap: CGFloat = 8
-    /// Gap between a separator and the control that follows it.
-    private static let postSeparatorGap: CGFloat = 9
-    private static let sliderWidth: CGFloat = 150
     private static let swatchSize: CGFloat = 18
     private static let swatchGap: CGFloat = 5
     private static let separatorGap: CGFloat = 6
     private static let checkboxGap: CGFloat = 8
     private static let trailingPad: CGFloat = 12
     private static var baseColorCount: CGFloat { CGFloat(EditorStyleDefaults.paletteColors.count) }
-
-    /// Left edge of the font-size slider — the font picker sits before it.
-    private static var sliderStartX: CGFloat {
-        leadingPad + fontButtonWidth + sectionGap + 1 + postSeparatorGap
-    }
-
-    /// Right edge of the last color swatch — the swatch row's extent.
-    private static func swatchRowEnd(hasDynamicColor: Bool) -> CGFloat {
-        let colorCount = baseColorCount + (hasDynamicColor ? 1.0 : 0.0)
-        return sliderStartX + sliderWidth + 8 + 1 + 9
-            + colorCount * swatchSize + max(colorCount - 1, 0) * swatchGap
-    }
 
     private static func checkboxWidth(title: String) -> CGFloat {
         let font = NSFont.systemFont(ofSize: 12, weight: .medium)
@@ -2763,29 +2753,27 @@ private class TextSubToolbar: NSView {
     }
 
     static func preferredWidth(dynamicColor: NSColor?) -> CGFloat {
-        swatchRowEnd(hasDynamicColor: dynamicColor != nil)
-            + separatorGap + 1 + checkboxGap
-            + strokeCheckboxWidth + checkboxGap + calloutCheckboxWidth
-            + trailingPad
+        var x = leadingPad + TierDotsView.preferredWidth + 8 + 1 + 9
+        let colorCount = baseColorCount + (dynamicColor != nil ? 1.0 : 0.0)
+        x += colorCount * swatchSize + max(colorCount - 1, 0) * swatchGap
+        return ceil(x + separatorGap + 1 + checkboxGap
+            + strokeCheckboxWidth + checkboxGap + calloutCheckboxWidth + trailingPad)
     }
 
     init(
         frame: NSRect,
         currentColor: NSColor,
-        currentFontSize: CGFloat,
-        currentFontName: String?,
+        currentFontTier: Int,
         dynamicColor: NSColor? = nil,
         strokeEnabled: Bool,
         calloutEnabled: Bool
     ) {
         self.currentColor = currentColor
-        self.currentFontSize = currentFontSize
-        self.currentFontName = currentFontName
         self.dynamicColor = dynamicColor
         self.strokeEnabled = strokeEnabled
         self.calloutEnabled = calloutEnabled
         super.init(frame: frame)
-        setup()
+        setup(currentFontTier: currentFontTier)
     }
 
     required init?(coder: NSCoder) {
@@ -2794,53 +2782,21 @@ private class TextSubToolbar: NSView {
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
-    private func setup() {
+    private func setup(currentFontTier: Int) {
         var x: CGFloat = TextSubToolbar.leadingPad
         let midY = bounds.midY
 
-        // Font family picker. Fixed width with a truncating title so a long
-        // family name can never push the rest of the row out of the HUD.
-        let fontPicker = HUDPopupButton(
-            frame: NSRect(
-                x: x,
-                y: midY - TextSubToolbar.fontButtonHeight / 2,
-                width: TextSubToolbar.fontButtonWidth,
-                height: TextSubToolbar.fontButtonHeight
-            ),
-            target: self,
-            action: #selector(fontButtonClicked(_:))
+        // Font-size tier dots.
+        let dots = TierDotsView(
+            frame: NSRect(x: x, y: 0, width: TierDotsView.preferredWidth, height: bounds.height),
+            values: EditorStyleDefaults.fontSizeTiers,
+            selectedIndex: currentFontTier
         )
-        fontPicker.titleText = FontCatalog.title(for: currentFontName)
-        fontPicker.setAccessibilityLabel(L10n.textFontLabel)
-        addSubview(fontPicker)
-        fontButton = fontPicker
-        x += TextSubToolbar.fontButtonWidth + TextSubToolbar.sectionGap
-
-        // Vertical separator between the font picker and the size slider.
-        let fontSep = AdaptiveSeparatorView(frame: NSRect(x: x, y: 6, width: 1, height: bounds.height - 12))
-        addSubview(fontSep)
-        x += 1 + TextSubToolbar.postSeparatorGap
-
-        // Font-size slider.
-        let s = HUDSlider(
-            value: Double(currentFontSize),
-            minValue: Defaults.textFontSizeMin,
-            maxValue: Defaults.textFontSizeMax,
-            target: self,
-            action: #selector(sliderChanged(_:))
-        )
-        s.isContinuous = true
-        s.frame = NSRect(
-            x: x,
-            y: midY - HUDSlider.preferredHeight / 2,
-            width: TextSubToolbar.sliderWidth,
-            height: HUDSlider.preferredHeight
-        )
-        s.onEditingBegan = { [weak self] in self?.onFontSizeBegan?() }
-        s.onEditingEnded = { [weak self] in self?.onFontSizeEnded?() }
-        addSubview(s)
-        slider = s
-        x += TextSubToolbar.sliderWidth + 8
+        dots.onTierChanged = { [weak self] tier in
+            self?.onFontSizeTierChanged?(tier)
+        }
+        addSubview(dots)
+        x += TierDotsView.preferredWidth + 8
 
         // Vertical separator between size controls and color swatches.
         let sep = AdaptiveSeparatorView(frame: NSRect(x: x, y: 6, width: 1, height: bounds.height - 12))
@@ -2909,37 +2865,6 @@ private class TextSubToolbar: NSView {
         calloutCheckbox.state = calloutEnabled ? .on : .off
         addSubview(calloutCheckbox)
         self.calloutCheckbox = calloutCheckbox
-
-    }
-
-    @objc private func fontButtonClicked(_ sender: HUDPopupButton) {
-        let menu = NSMenu()
-        menu.autoenablesItems = false
-
-        let systemItem = ClosureMenuItem(title: L10n.textFontSystemDefault) { [weak self] in
-            self?.selectFontName(nil)
-        }
-        systemItem.state = currentFontName == nil ? .on : .off
-        menu.addItem(systemItem)
-        menu.addItem(.separator())
-
-        for family in FontCatalog.families {
-            let item = ClosureMenuItem(title: FontCatalog.displayName(for: family)) { [weak self] in
-                self?.selectFontName(family)
-            }
-            item.attributedTitle = FontCatalog.previewTitle(for: family)
-            item.state = family == currentFontName ? .on : .off
-            menu.addItem(item)
-        }
-
-        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: -4), in: sender)
-        onFontMenuClosed?()
-    }
-
-    private func selectFontName(_ fontName: String?) {
-        currentFontName = fontName
-        fontButton?.titleText = FontCatalog.title(for: fontName)
-        onFontNameChanged?(fontName)
     }
 
     @objc private func strokeCheckboxChanged(_ sender: HUDCheckboxButton) {
@@ -2950,14 +2875,6 @@ private class TextSubToolbar: NSView {
     @objc private func calloutCheckboxChanged(_ sender: HUDCheckboxButton) {
         calloutEnabled = sender.state == .on
         onCalloutChanged?(calloutEnabled)
-    }
-
-    @objc private func sliderChanged(_ sender: HUDSlider) {
-        let raw = CGFloat(sender.doubleValue)
-        let clamped = max(CGFloat(Defaults.textFontSizeMin), min(CGFloat(Defaults.textFontSizeMax), raw))
-
-        currentFontSize = clamped
-        onFontSizeChanged?(clamped)
     }
 
     @objc private func colorTapped(_ gesture: NSGestureRecognizer) {
@@ -3328,299 +3245,6 @@ private class ColorSwatchView: NSView {
 
 // MARK: - HUD Slider
 
-final class HUDSlider: NSControl {
-    var minValue: Double
-    var maxValue: Double
-    var onEditingBegan: (() -> Void)?
-    var onEditingEnded: (() -> Void)?
-
-    override var doubleValue: Double {
-        get { value }
-        set { setValue(newValue, notify: false) }
-    }
-
-    override var isEnabled: Bool {
-        didSet {
-            if !isEnabled {
-                isDragging = false
-            }
-            needsDisplay = true
-        }
-    }
-
-    private var value: Double
-    private var isDragging = false {
-        didSet { needsDisplay = true }
-    }
-
-    static let preferredHeight: CGFloat = 24
-    private let trackLeftHeight: CGFloat = 5
-    private let trackRightHeight: CGFloat = 14
-    private let trackCornerRadius: CGFloat = 3
-    private let knobHeight: CGFloat = 20
-    private let knobMinWidth: CGFloat = 34
-    private let knobHorizontalPadding: CGFloat = 12
-    private let valueFont = NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .semibold)
-
-    init(
-        frame: NSRect = .zero,
-        value: Double,
-        minValue: Double,
-        maxValue: Double,
-        target: AnyObject?,
-        action: Selector?
-    ) {
-        self.minValue = minValue
-        self.maxValue = maxValue
-        self.value = min(max(value, minValue), maxValue)
-        super.init(frame: frame)
-        self.target = target
-        self.action = action
-        wantsLayer = true
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    override var intrinsicContentSize: NSSize {
-        NSSize(width: NSView.noIntrinsicMetric, height: Self.preferredHeight)
-    }
-
-    override var acceptsFirstResponder: Bool { true }
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { isEnabled }
-
-    override func draw(_ dirtyRect: NSRect) {
-        let enabledAlpha: CGFloat = isEnabled ? 1 : 0.35
-        let trackRect = currentTrackRect
-        let trackPath = trapezoidPath(
-            in: trackRect,
-            leftHeight: trackLeftHeight,
-            rightHeight: trackRightHeight
-        )
-        AdaptiveChrome.subtleFill.withAlphaComponent(enabledAlpha).setFill()
-        trackPath.fill()
-
-        let knobCenterX = trackRect.minX + normalizedValue * trackRect.width
-        if knobCenterX > trackRect.minX {
-            let fraction = normalizedValue
-            let fillRightHeight = interpolatedTrackHeight(at: fraction)
-            let fillPath = trapezoidPath(
-                in: NSRect(
-                    x: trackRect.minX,
-                    y: trackRect.minY,
-                    width: knobCenterX - trackRect.minX,
-                    height: trackRect.height
-                ),
-                leftHeight: trackLeftHeight,
-                rightHeight: fillRightHeight
-            )
-            accentGreen.withAlphaComponent(0.18 * enabledAlpha).setFill()
-            fillPath.fill()
-        }
-
-        AdaptiveChrome.border.withAlphaComponent(enabledAlpha).setStroke()
-        trackPath.lineWidth = 1.5
-        trackPath.stroke()
-
-        let knobWidth = currentKnobWidth
-        let knobRect = NSRect(
-            x: knobCenterX - knobWidth / 2,
-            y: floor(bounds.midY - knobHeight / 2),
-            width: knobWidth,
-            height: knobHeight
-        )
-        let knobPath = NSBezierPath(
-            roundedRect: knobRect,
-            xRadius: knobHeight / 2,
-            yRadius: knobHeight / 2
-        )
-        NSGraphicsContext.saveGraphicsState()
-        let shadow = NSShadow()
-        shadow.shadowColor = NSColor.black.withAlphaComponent(0.24 * enabledAlpha)
-        shadow.shadowBlurRadius = 2.5
-        shadow.shadowOffset = NSSize(width: 0, height: -1)
-        shadow.set()
-        NSColor.controlBackgroundColor.withAlphaComponent(enabledAlpha).setFill()
-        knobPath.fill()
-        NSGraphicsContext.restoreGraphicsState()
-
-        AdaptiveChrome.border.withAlphaComponent(enabledAlpha).setStroke()
-        knobPath.lineWidth = 0.6
-        knobPath.stroke()
-
-        drawValue(in: knobRect, enabledAlpha: enabledAlpha)
-    }
-
-    override func mouseDown(with event: NSEvent) {
-        guard isEnabled else { return }
-        window?.makeFirstResponder(self)
-        isDragging = true
-        onEditingBegan?()
-        updateValue(with: event, notify: true)
-    }
-
-    override func mouseDragged(with event: NSEvent) {
-        guard isEnabled else { return }
-        updateValue(with: event, notify: isContinuous)
-    }
-
-    override func mouseUp(with event: NSEvent) {
-        guard isEnabled else {
-            isDragging = false
-            return
-        }
-        updateValue(with: event, notify: true)
-        isDragging = false
-        onEditingEnded?()
-    }
-
-    override func keyDown(with event: NSEvent) {
-        guard isEnabled else { return }
-        let fineStep = max((maxValue - minValue) / 100, 0.1)
-        let coarseStep = max((maxValue - minValue) / 20, fineStep)
-        let step = event.modifierFlags.contains(.shift) ? coarseStep : fineStep
-        switch Int(event.keyCode) {
-        case kVK_LeftArrow, kVK_DownArrow:
-            onEditingBegan?()
-            setValue(value - step, notify: true)
-            onEditingEnded?()
-        case kVK_RightArrow, kVK_UpArrow:
-            onEditingBegan?()
-            setValue(value + step, notify: true)
-            onEditingEnded?()
-        default:
-            super.keyDown(with: event)
-        }
-    }
-
-    private var normalizedValue: CGFloat {
-        guard maxValue > minValue else { return 0 }
-        return CGFloat((value - minValue) / (maxValue - minValue))
-    }
-
-    private var currentKnobWidth: CGFloat {
-        let samples = [
-            displayText(for: minValue),
-            displayText(for: maxValue),
-            displayText(for: value),
-        ]
-        let maxWidth = samples
-            .map { ceil(($0 as NSString).size(withAttributes: [.font: valueFont]).width) }
-            .max() ?? 0
-        return max(knobMinWidth, maxWidth + knobHorizontalPadding)
-    }
-
-    private var currentTrackRect: NSRect {
-        let knobWidth = currentKnobWidth
-        return NSRect(
-            x: knobWidth / 2,
-            y: floor(bounds.midY - trackRightHeight / 2),
-            width: max(1, bounds.width - knobWidth),
-            height: trackRightHeight
-        )
-    }
-
-    private func updateValue(with event: NSEvent, notify: Bool) {
-        let point = convert(event.locationInWindow, from: nil)
-        let trackRect = currentTrackRect
-        let normalized = max(0, min(1, (point.x - trackRect.minX) / trackRect.width))
-        setValue(minValue + Double(normalized) * (maxValue - minValue), notify: notify)
-    }
-
-    private func setValue(_ newValue: Double, notify: Bool) {
-        value = min(max(newValue, minValue), maxValue)
-        needsDisplay = true
-        if notify, let action {
-            sendAction(action, to: target)
-        }
-    }
-
-    private func trapezoidPath(in rect: NSRect, leftHeight: CGFloat, rightHeight: CGFloat) -> NSBezierPath {
-        let leftHalf = leftHeight / 2
-        let rightHalf = rightHeight / 2
-        return roundedPolygonPath(
-            points: [
-                NSPoint(x: rect.minX, y: rect.midY + leftHalf),
-                NSPoint(x: rect.maxX, y: rect.midY + rightHalf),
-                NSPoint(x: rect.maxX, y: rect.midY - rightHalf),
-                NSPoint(x: rect.minX, y: rect.midY - leftHalf),
-            ],
-            radius: trackCornerRadius
-        )
-    }
-
-    private func roundedPolygonPath(points: [NSPoint], radius: CGFloat) -> NSBezierPath {
-        let path = NSBezierPath()
-        guard points.count > 2, radius > 0 else {
-            if let first = points.first {
-                path.move(to: first)
-                for point in points.dropFirst() {
-                    path.line(to: point)
-                }
-                path.close()
-            }
-            return path
-        }
-
-        for index in points.indices {
-            let current = points[index]
-            let previous = points[(index - 1 + points.count) % points.count]
-            let next = points[(index + 1) % points.count]
-            let previousVector = CGVector(dx: previous.x - current.x, dy: previous.y - current.y)
-            let nextVector = CGVector(dx: next.x - current.x, dy: next.y - current.y)
-            let previousLength = hypot(previousVector.dx, previousVector.dy)
-            let nextLength = hypot(nextVector.dx, nextVector.dy)
-            guard previousLength > 0, nextLength > 0 else { continue }
-
-            let cornerDistance = min(radius, previousLength / 2, nextLength / 2)
-            let start = NSPoint(
-                x: current.x + previousVector.dx / previousLength * cornerDistance,
-                y: current.y + previousVector.dy / previousLength * cornerDistance
-            )
-            let end = NSPoint(
-                x: current.x + nextVector.dx / nextLength * cornerDistance,
-                y: current.y + nextVector.dy / nextLength * cornerDistance
-            )
-
-            if index == points.startIndex {
-                path.move(to: start)
-            } else {
-                path.line(to: start)
-            }
-            path.curve(to: end, controlPoint1: current, controlPoint2: current)
-        }
-        path.close()
-        return path
-    }
-
-    private func interpolatedTrackHeight(at fraction: CGFloat) -> CGFloat {
-        trackLeftHeight + (trackRightHeight - trackLeftHeight) * max(0, min(1, fraction))
-    }
-
-    private func drawValue(in rect: NSRect, enabledAlpha: CGFloat) {
-        let text = displayText(for: value)
-        let attributed = NSAttributedString(
-            string: text,
-            attributes: [
-                .font: valueFont,
-                .foregroundColor: NSColor.labelColor.withAlphaComponent(enabledAlpha),
-            ]
-        )
-        let textSize = attributed.size()
-        let textRect = NSRect(
-            x: floor(rect.midX - textSize.width / 2),
-            y: floor(rect.midY - textSize.height / 2),
-            width: ceil(textSize.width),
-            height: ceil(textSize.height)
-        )
-        attributed.draw(in: textRect)
-    }
-
-    private func displayText(for rawValue: Double) -> String {
-        "\(Int(rawValue.rounded()))"
-    }
-}
 
 private final class ShapeStrokeStyleButtonView: StyleOptionView {
     let style: ShapeStrokeStyle

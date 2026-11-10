@@ -16,16 +16,15 @@ enum EditorStyleDefaults {
         color(fromHex: Defaults.lastEditorColorHex) ?? paletteColors[0]
     }
 
-    static var markerColor: NSColor {
-        color(fromHex: Defaults.lastMarkerColorHex) ?? paletteColors[3]
-    }
+    // Three size tiers per tool: index 0 = small, 1 = medium (default), 2 = large.
+    static let lineWidthTiers: [CGFloat] = [2, 4, 8]
+    static let numberSizeTiers: [CGFloat] = [3, 5, 8]
+    static let mosaicSizeTiers: [CGFloat] = [6, 12, 24]
+    static let mosaicBlurTiers: [CGFloat] = [4, 8, 16]
+    static let fontSizeTiers: [CGFloat] = [14, 20, 30]
 
-    static let standardLineSizes: [CGFloat] = [2, 4, 6]
-    static let markerLineSizes: [CGFloat] = [3, 5, 8]
-
-    static var standardLineWidth: CGFloat { CGFloat(Defaults.lastEditorLineWidth) }
-    static var markerLineWidth: CGFloat { CGFloat(Defaults.lastMarkerLineWidth) }
-    static var numberSize: CGFloat { CGFloat(Defaults.lastNumberSize) }
+    static var standardLineWidth: CGFloat { lineWidthTiers[Defaults.lastLineWidthTier] }
+    static var numberSize: CGFloat { numberSizeTiers[Defaults.lastNumberSizeTier] }
 
     private static func color(fromHex hex: String?) -> NSColor? {
         guard var trimmed = hex?.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() else {

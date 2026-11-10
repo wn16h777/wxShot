@@ -505,6 +505,13 @@ struct Defaults {
         UserDefaults.standard
     }
 
+    /// Reads a persisted size-tier index; anything outside 0...2 (including
+    /// legacy continuous values) falls back to the medium tier.
+    private static func tierValue(_ key: String) -> Int {
+        let raw = defaults.integer(forKey: key)
+        return (0...2).contains(raw) ? raw : 1
+    }
+
     static var doubleTapInterval: TimeInterval {
         get {
             let val = defaults.double(forKey: "doubleTapInterval")
@@ -905,13 +912,10 @@ struct Defaults {
         }
     }
 
-    static let editorLineWidthMin: Double = 1
-    static let editorLineWidthMax: Double = 16
-    static let markerLineWidthMax: Double = 10
-    static let numberSizeMin: Double = 1
-    static let numberSizeDefault: Double = 5
-    static let numberSizeMax: Double = 25
-
+    /// Size presets: tier index 0 = small, 1 = medium (default), 2 = large.
+    /// Tier indexes are persisted directly; any stored value outside 0...2
+    /// (e.g. legacy continuous sizes) is ignored and falls back to medium.
+    
     static var lastEditorColorHex: String? {
         get {
             normalizedHexColor(defaults.string(forKey: "lastEditorColorHex"))
@@ -925,28 +929,14 @@ struct Defaults {
         }
     }
 
-    static var lastEditorLineWidth: Double {
-        get {
-            if defaults.object(forKey: "lastEditorLineWidth") == nil {
-                return 4.0
-            }
-            return clampedEditorLineWidth(defaults.double(forKey: "lastEditorLineWidth"))
-        }
-        set {
-            defaults.set(clampedEditorLineWidth(newValue), forKey: "lastEditorLineWidth")
-        }
+    static var lastLineWidthTier: Int {
+        get { tierValue("lastLineWidthTier") }
+        set { defaults.set(newValue, forKey: "lastLineWidthTier") }
     }
 
-    static var lastNumberSize: Double {
-        get {
-            guard defaults.object(forKey: "lastNumberSize") != nil else {
-                return numberSizeDefault
-            }
-            return clampedNumberSize(defaults.double(forKey: "lastNumberSize"))
-        }
-        set {
-            defaults.set(clampedNumberSize(newValue), forKey: "lastNumberSize")
-        }
+    static var lastNumberSizeTier: Int {
+        get { tierValue("lastNumberSizeTier") }
+        set { defaults.set(newValue, forKey: "lastNumberSizeTier") }
     }
 
     static var lastMarkerColorHex: String? {
@@ -962,66 +952,30 @@ struct Defaults {
         }
     }
 
-    static var lastMarkerLineWidth: Double {
-        get {
-            if defaults.object(forKey: "lastMarkerLineWidth") == nil {
-                return 5.0
-            }
-            return clampedMarkerLineWidth(defaults.double(forKey: "lastMarkerLineWidth"))
-        }
-        set {
-            defaults.set(clampedMarkerLineWidth(newValue), forKey: "lastMarkerLineWidth")
-        }
+
+    static var lastMosaicSizeTier: Int {
+        get { tierValue("lastMosaicSizeTier") }
+        set { defaults.set(newValue, forKey: "lastMosaicSizeTier") }
     }
 
-    static var mosaicBlockSize: Double {
-        get {
-            let val = defaults.double(forKey: "mosaicBlockSize")
-            guard val > 0 else { return 12.0 }
-            return min(max(val, mosaicBlockSizeMin), mosaicBlockSizeMax)
-        }
-        set {
-            defaults.set(min(max(newValue, mosaicBlockSizeMin), mosaicBlockSizeMax), forKey: "mosaicBlockSize")
-        }
-    }
-
-    static let mosaicBlockSizeMin: Double = 4
-    static let mosaicBlockSizeMax: Double = 48
 
     static var mosaicStyle: MosaicStyle {
         get { MosaicStyle(rawValue: defaults.string(forKey: "mosaicStyle") ?? "") ?? .pixelate }
         set { defaults.set(newValue.rawValue, forKey: "mosaicStyle") }
     }
 
-    static let mosaicBlurRadiusMin: Double = 1
-    static let mosaicBlurRadiusMax: Double = 48
 
-    static var mosaicBlurRadius: Double {
-        get {
-            guard defaults.object(forKey: "mosaicBlurRadius") != nil else { return 12 }
-            return normalizedMosaicBlurRadius(defaults.double(forKey: "mosaicBlurRadius"))
-        }
-        set { defaults.set(normalizedMosaicBlurRadius(newValue), forKey: "mosaicBlurRadius") }
+    static var lastMosaicBlurTier: Int {
+        get { tierValue("lastMosaicBlurTier") }
+        set { defaults.set(newValue, forKey: "lastMosaicBlurTier") }
     }
 
-    static func normalizedMosaicBlurRadius(_ value: Double) -> Double {
-        value.isFinite ? min(max(value, mosaicBlurRadiusMin), mosaicBlurRadiusMax) : 12
-    }
 
-    static let textFontSizeMin: Double = 10
-    static let textFontSizeMax: Double = 100
+    static let textFontSizeTiers: [Double] = [14, 20, 30]
 
-    static var lastTextFontSize: Double {
-        get {
-            if defaults.object(forKey: "lastTextFontSize") == nil {
-                return 20
-            }
-            let val = defaults.double(forKey: "lastTextFontSize")
-            return min(max(val, textFontSizeMin), textFontSizeMax)
-        }
-        set {
-            defaults.set(min(max(newValue, textFontSizeMin), textFontSizeMax), forKey: "lastTextFontSize")
-        }
+    static var lastFontSizeTier: Int {
+        get { tierValue("lastFontSizeTier") }
+        set { defaults.set(newValue, forKey: "lastFontSizeTier") }
     }
 
     /// Default font family for text annotations. Shared by the settings pane
@@ -1029,21 +983,6 @@ struct Defaults {
     /// "remember last used" model of the other text-tool properties).
     /// Normalized at the persistence boundary: a family that is no longer
     /// installed reads back as nil, i.e. the system bold default.
-    static var textFontName: String? {
-        get {
-            guard let name = defaults.string(forKey: "textFontName"), !name.isEmpty else {
-                return nil
-            }
-            return FontCatalog.isInstalled(name) ? name : nil
-        }
-        set {
-            if let newValue, !newValue.isEmpty {
-                defaults.set(newValue, forKey: "textFontName")
-            } else {
-                defaults.removeObject(forKey: "textFontName")
-            }
-        }
-    }
 
     /// Whether the text tool's outline checkbox was last left on.
     static var lastTextStroke: Bool {
@@ -1092,18 +1031,6 @@ struct Defaults {
         if trimmed.hasPrefix("#") { trimmed.removeFirst() }
         guard trimmed.count == 6, UInt32(trimmed, radix: 16) != nil else { return nil }
         return "#\(trimmed)"
-    }
-
-    private static func clampedEditorLineWidth(_ width: Double) -> Double {
-        min(max(width, editorLineWidthMin), editorLineWidthMax)
-    }
-
-    private static func clampedNumberSize(_ size: Double) -> Double {
-        min(max(size, numberSizeMin), numberSizeMax)
-    }
-
-    private static func clampedMarkerLineWidth(_ width: Double) -> Double {
-        min(max(width, editorLineWidthMin), markerLineWidthMax)
     }
 
     private static func clampedUnitInterval(_ value: Double) -> Double {

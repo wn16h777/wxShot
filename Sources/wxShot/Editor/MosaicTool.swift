@@ -43,7 +43,7 @@ struct MosaicTool {
                 width: clamped.width * scale,
                 height: clamped.height * CGFloat(cgImage.height) / imageSize.height
             )
-            let radius = CGFloat(Defaults.normalizedMosaicBlurRadius(Double(blurRadius)))
+            let radius = min(max(blurRadius, EditorStyleDefaults.mosaicBlurTiers[0]), EditorStyleDefaults.mosaicBlurTiers[2])
             let blurred = ciImage.clampedToExtent().applyingFilter(
                 "CIGaussianBlur",
                 parameters: [kCIInputRadiusKey: radius * scale]
