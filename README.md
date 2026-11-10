@@ -1,20 +1,41 @@
-# wxShot (personal fork)
+# wxShot(个人版)
 
-Menu-bar-less macOS screenshot tool that replaces WeChat's screenshot when WeChat is not signed in. Press `⌃⌘A` anywhere (WeChat for Mac's own screenshot key); drag to select; double-click or press Return to copy. Rectangle, ellipse, arrow, pen, mosaic, text, pin — WeChat's toolbar, rebuilt in pure AppKit.
+微信没登录时接管微信截图的后台常驻工具。在任何界面按 **⌃⌘A**(微信 Mac 版自己的截图键)即可截图:拖框选区、双击或回车复制到剪贴板。纯 AppKit 原生实现,无 Dock 图标、默认无菜单栏图标。
 
-This is a **personal fork**: upstream's network-facing pieces (telemetry, update check, website/GitHub/feedback links) and the OCR / translate / long-screenshot features were removed — the app makes **zero network requests** and captures via ScreenCaptureKit entirely on-device.
+## 特性
 
-Forked from [ntfstool/wxShot](https://github.com/ntfstool/wxShot) (MIT). Original copyright and license retained in `LICENSE`.
+- **与微信无缝共存**:微信登录 → 自动让出 ⌃⌘A;微信退出或停在登录窗 → 自动接管,无需任何设置
+- **微信同款工具栏**:矩形、圆、直线、箭头、画笔、马赛克、序号、文字 | 撤销、重做、保存、钉住、分享、关闭、确认
+- 编辑器内单键切换工具(V 选择、R 矩形、O 椭圆、L 直线、A 箭头、D 画笔、M 马赛克、N 序号、T 文字)
+- 取色放大镜(坐标 + 色值,⌘C 复制)
+- 贴图(钉在桌面置顶)、全屏截图、快速贴图等独立热键可选
+- **零网络请求、零上传**:所有处理均在本机完成(ScreenCaptureKit 抓屏)
+- 仅需「屏幕录制」一项权限
+- 中英双语界面
 
-## Requirements
+## 安装与使用
 
-macOS 14+, Screen Recording permission (the only permission it asks for).
+macOS 14+。首次启动按提示允许「屏幕录制」并重启 App 即可。再次打开 App 进入设置(快捷键、语言、开机启动等)。
 
-## Build
+## 构建
 
 ```bash
-swift build && swift test   # development
-scripts/build.sh            # dist/wxShot.app (ad-hoc signed)
+swift build && swift test   # 开发
+scripts/build.sh            # dist/wxShot.app(ad-hoc 签名)
 ```
 
-Full Xcode is required — Command Line Tools alone cannot build the vendored PermissionFlow (SwiftUI macros).
+需要完整 Xcode(含 vendored PermissionFlow 的 SwiftUI 宏);Command Line Tools 单独无法编译。
+
+## 与上游的差异
+
+本仓库是 [ntfstool/wxShot](https://github.com/ntfstool/wxShot)(MIT)的个人 fork,相较上游:
+
+- 移除遥测、更新检查、官网/GitHub/反馈入口——**零网络请求**
+- 默认快捷键 ⌥A → **⌃⌘A**(对齐微信 Mac 实际默认键)
+- 共存策略定死为单一模式(微信登录即让位),移除三选一设置
+- 界面语言精简为中英双语
+- 移除 OCR、翻译、长截图、表情、荧光笔、聚光、橡皮擦、放大镜标注、插入图片、旋转、手绘线型、形状填充等——只保留微信对齐的核心标注集
+- 工具栏改单排 16 键,无二级菜单
+- 版本号自定义起点 1.0.0
+
+原作者版权与 MIT 许可证保留于 `LICENSE`。本项目与腾讯无关,"WeChat" 商标归其所有者,仅用于描述兼容性。
