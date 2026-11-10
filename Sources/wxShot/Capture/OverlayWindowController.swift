@@ -726,9 +726,6 @@ class OverlayWindowController {
                 self?.editController?.saveFromKeyboard()
                 return nil
             }
-            if self?.editController?.handleEditorShortcutFromKeyboard(for: event) == true {
-                return nil
-            }
             return event
         }
         leftMouseLocalMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in

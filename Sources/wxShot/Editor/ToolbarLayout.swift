@@ -124,15 +124,9 @@ extension ToolbarItemID {
         }
     }
 
-    /// Localized hover-tooltip text with the current configured shortcut.
+    /// Localized hover-tooltip text.
     var tooltip: String {
-        guard let shortcut = editorShortcutDisplay else { return localizedTitle }
-        return "\(localizedTitle) (\(shortcut))"
-    }
-
-    var editorShortcutDisplay: String? {
-        guard supportsEditorShortcut else { return nil }
-        return EditorShortcutRegistry.displayString(for: .toolbar(self))
+        localizedTitle
     }
 
     /// Icon tint in the resting state.

@@ -3125,11 +3125,13 @@ class EditCanvasView: NSView {
     }
 
     private static func isUndoKey(_ event: NSEvent) -> Bool {
-        EditorShortcutRegistry.eventMatches(event, action: .toolbar(.undo))
+        commandShortcutCharacter(for: event) == "z"
     }
 
     private static func isRedoKey(_ event: NSEvent) -> Bool {
-        EditorShortcutRegistry.eventMatches(event, action: .toolbar(.redo))
+        let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        guard modifiers == [.command, .shift] else { return false }
+        return event.charactersIgnoringModifiers?.lowercased() == "z"
     }
 
     private static func commandShortcutCharacter(for event: NSEvent) -> String? {

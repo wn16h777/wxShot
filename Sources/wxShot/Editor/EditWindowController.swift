@@ -1469,19 +1469,6 @@ class EditWindowController {
         return canvasView?.deleteSelectedAnnotationFromKeyboard(for: event) ?? false
     }
 
-    func handleEditorShortcutFromKeyboard(for event: NSEvent) -> Bool {
-        guard let shortcut = EditorShortcutRegistry.action(matching: event) else { return false }
-
-        switch shortcut {
-        case .select:
-            selectTool(.none)
-        case .toolbar(let item):
-            return performToolbarItem(item, togglesSelectedTool: false)
-        }
-        return true
-    }
-
-
     private func confirm() {
         guard !deferUntilWindowCaptureReady(.confirm) else { return }
         canvasView?.commitActiveTextEditing()
@@ -2493,7 +2480,6 @@ private class ColorSizeSubToolbar: NSView {
             x += swatchSize + ColorSizeSubToolbar.swatchGap
         }
 
-        let lastSectionRightEdge = x - ColorSizeSubToolbar.swatchGap
 
     }
 

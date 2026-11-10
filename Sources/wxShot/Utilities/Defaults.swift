@@ -38,7 +38,6 @@ enum AppLanguage: String, CaseIterable {
 extension Notification.Name {
     static let languageDidChange = Notification.Name("wxshot.languageDidChange")
     static let hotkeyDidChange = Notification.Name("wxshot.hotkeyDidChange")
-    static let editorShortcutsDidChange = Notification.Name("wxshot.editorShortcutsDidChange")
 }
 
 /// Centralized accessor for every user-facing string. Each property resolves a
