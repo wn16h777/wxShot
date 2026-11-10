@@ -106,10 +106,12 @@ final class OnboardingWindowController: NSWindowController, NSWindowDelegate {
     }
 
     @objc private func grantClicked() {
-        // Registers wxShot in the Screen Recording list, then opens the
-        // relevant System Settings pane directly.
-        _ = CGRequestScreenCaptureAccess()
-        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
+        // The system consent dialog is one-shot: once dismissed (or denied),
+        // CGRequestScreenCaptureAccess() returns false forever without any
+        // UI. So: show it while it still exists, and fall back to the deep
+        // link so the button never dead-ends.
+        if !CGRequestScreenCaptureAccess(),
+           let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
             NSWorkspace.shared.open(url)
         }
     }
