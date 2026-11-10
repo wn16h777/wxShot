@@ -93,14 +93,8 @@ enum EditorShortcutAction: Hashable {
         case .toolbar(.pen):
             keyCode = kVK_ANSI_D
             modifiers = 0
-        case .toolbar(.marker):
-            keyCode = kVK_ANSI_H
-            modifiers = 0
         case .toolbar(.mosaic):
             keyCode = kVK_ANSI_M
-            modifiers = 0
-        case .toolbar(.eraser):
-            keyCode = kVK_ANSI_E
             modifiers = 0
         case .toolbar(.numbered):
             keyCode = kVK_ANSI_N

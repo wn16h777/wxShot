@@ -14,14 +14,6 @@ S = {
   "en": "The default ⌃⌘A is the same as WeChat's screenshot shortcut, so your habits carry over", "zh-Hans": "默认 ⌃⌘A，与微信截图习惯一致，无需重新适应", "zh-Hant": "預設 ⌃⌘A，與微信截圖習慣一致，無需重新適應", "ja": "既定の ⌃⌘A は WeChat のスクリーンショットと同じなので、操作感はそのままです", "ko": "기본값 ⌃⌘A 는 WeChat 스크린샷과 같아서 손에 익은 그대로 쓸 수 있습니다", "fr": "⌃⌘A par défaut, comme la capture de WeChat : vos habitudes restent les mêmes", "ru": "По умолчанию ⌃⌘A, как в скриншоте WeChat — привычки сохраняются", "vi": "Mặc định ⌃⌘A, giống phím chụp của WeChat nên bạn không cần làm quen lại"},
  "wxSectionWeChat": {
   "en": "When WeChat is open", "zh-Hans": "微信打开时", "zh-Hant": "微信開啟時", "ja": "WeChat が起動しているとき", "ko": "WeChat 이 실행 중일 때", "fr": "Quand WeChat est ouvert", "ru": "Когда открыт WeChat", "vi": "Khi WeChat đang mở"},
- "wxPolicyAuto": {
-  "en": "Automatic: WeChat takes over once it is signed in", "zh-Hans": "自动：微信登录后交给微信，未登录时用 wxShot", "zh-Hant": "自動：微信登入後交給微信，未登入時用 wxShot", "ja": "自動：WeChat にログインしたら WeChat に任せる", "ko": "자동: WeChat 에 로그인하면 WeChat 이 처리", "fr": "Automatique : WeChat prend le relais une fois connecté", "ru": "Авто: после входа в WeChat снимает он", "vi": "Tự động: WeChat đảm nhận khi đã đăng nhập"},
- "wxPolicyAlways": {
-  "en": "Always use wxShot", "zh-Hans": "始终使用 wxShot 截图", "zh-Hant": "一律使用 wxShot 截圖", "ja": "常に wxShot を使う", "ko": "항상 wxShot 사용", "fr": "Toujours utiliser wxShot", "ru": "Всегда использовать wxShot", "vi": "Luôn dùng wxShot"},
- "wxPolicyYield": {
-  "en": "Let WeChat handle it whenever it is running", "zh-Hans": "微信运行时一律交给微信", "zh-Hant": "微信執行時一律交給微信", "ja": "WeChat が起動中は常に WeChat に任せる", "ko": "WeChat 이 실행 중이면 항상 WeChat 에 맡기기", "fr": "Laisser WeChat gérer dès qu'il est lancé", "ru": "Пока запущен WeChat, снимает он", "vi": "Nhường cho WeChat mỗi khi nó đang chạy"},
- "wxPolicyHint": {
-  "en": "If both apps use the same shortcut and wxShot is set to always capture, change one of them to avoid two screenshots at once", "zh-Hans": "若选择始终使用 wxShot，请把微信或 wxShot 的快捷键改成不同的，避免一次按键弹出两个截图", "zh-Hant": "若選擇一律使用 wxShot，請將微信或 wxShot 的快速鍵改成不同的，避免一次按鍵彈出兩個截圖", "ja": "常に wxShot を使う場合は、同時に二つ起動しないようどちらかのショートカットを変えてください", "ko": "항상 wxShot 을 쓴다면 두 앱의 단축키를 다르게 바꿔 한 번에 두 개가 뜨지 않게 하세요", "fr": "Si wxShot capture toujours, changez l'un des raccourcis pour éviter deux captures en même temps", "ru": "Если выбрано «всегда wxShot», измените сочетание в одном из приложений, чтобы не открывались два скриншота", "vi": "Nếu chọn luôn dùng wxShot, hãy đổi phím tắt của một trong hai để tránh bật hai lần chụp cùng lúc"},
  "wxWeChatStatusNotRunning": {
   "en": "WeChat is not running", "zh-Hans": "微信未运行", "zh-Hant": "微信未執行", "ja": "WeChat は起動していません", "ko": "WeChat 이 실행 중이 아닙니다", "fr": "WeChat n'est pas lancé", "ru": "WeChat не запущен", "vi": "WeChat chưa chạy"},
  "wxWeChatStatusLoginScreen": {
@@ -64,20 +56,8 @@ S = {
   "en": "Share", "zh-Hans": "分享", "zh-Hant": "分享", "ja": "共有", "ko": "공유", "fr": "Partager", "ru": "Поделиться", "vi": "Chia sẻ"},
  "wxTipMore": {
   "en": "More", "zh-Hans": "更多", "zh-Hant": "更多", "ja": "その他", "ko": "더보기", "fr": "Plus", "ru": "Ещё", "vi": "Thêm"},
- "wxTranslateHeader": {
-  "en": "Translation", "zh-Hans": "翻译", "zh-Hant": "翻譯", "ja": "翻訳", "ko": "번역", "fr": "Traduction", "ru": "Перевод", "vi": "Bản dịch"},
- "wxTranslating": {
-  "en": "Translating…", "zh-Hans": "翻译中…", "zh-Hant": "翻譯中…", "ja": "翻訳中…", "ko": "번역 중…", "fr": "Traduction…", "ru": "Перевод…", "vi": "Đang dịch…"},
- "wxTranslateUnsupported": {
-  "en": "Translation needs macOS 15 or later", "zh-Hans": "翻译功能需要 macOS 15 或更高版本", "zh-Hant": "翻譯功能需要 macOS 15 或更新版本", "ja": "翻訳には macOS 15 以降が必要です", "ko": "번역에는 macOS 15 이상이 필요합니다", "fr": "La traduction nécessite macOS 15 ou ultérieur", "ru": "Для перевода нужна macOS 15 или новее", "vi": "Dịch cần macOS 15 trở lên"},
- "wxTranslateFailed": {
-  "en": "Translation failed. Make sure the language pack is downloaded in System Settings › General › Language & Region › Translation Languages", "zh-Hans": "翻译失败。请在 系统设置 › 通用 › 语言与地区 › 翻译语言 中下载对应语言", "zh-Hant": "翻譯失敗。請在 系統設定 › 一般 › 語言與地區 › 翻譯語言 中下載對應語言", "ja": "翻訳に失敗しました。システム設定 › 一般 › 言語と地域 › 翻訳言語 で言語をダウンロードしてください", "ko": "번역에 실패했습니다. 시스템 설정 › 일반 › 언어 및 지역 › 번역 언어 에서 언어를 내려받으세요", "fr": "Échec de la traduction. Téléchargez la langue dans Réglages Système › Général › Langue et région › Langues de traduction", "ru": "Не удалось перевести. Загрузите язык в Системные настройки › Основные › Язык и регион › Языки перевода", "vi": "Dịch thất bại. Hãy tải gói ngôn ngữ trong Cài đặt hệ thống › Cài đặt chung › Ngôn ngữ & Vùng › Ngôn ngữ dịch"},
  "wxLensCopyHint": {
   "en": "Press ⌘+C to copy the color", "zh-Hans": "按 ⌘+C 复制色值", "zh-Hant": "按 ⌘+C 複製色值", "ja": "⌘+C で色をコピー", "ko": "⌘+C 로 색상 복사", "fr": "⌘+C pour copier la couleur", "ru": "⌘+C — копировать цвет", "vi": "Nhấn ⌘+C để sao chép màu"},
- "wxScrollTooFast": {
-  "en": "Scrolling too fast — slow down so every part is captured", "zh-Hans": "滚动太快了，请放慢速度，才能完整拼接", "zh-Hant": "捲動太快了，請放慢速度，才能完整拼接", "ja": "スクロールが速すぎます。ゆっくりスクロールしてください", "ko": "스크롤이 너무 빠릅니다. 천천히 스크롤하세요", "fr": "Défilement trop rapide — ralentissez pour tout capturer", "ru": "Слишком быстрая прокрутка — замедлитесь, чтобы захватить всё", "vi": "Cuộn quá nhanh — hãy chậm lại để chụp đầy đủ"},
- "wxLongShotCopied": {
-  "en": "Long screenshot copied to the clipboard", "zh-Hans": "长截图已复制到剪贴板", "zh-Hant": "長截圖已複製到剪貼簿", "ja": "長いスクリーンショットをクリップボードにコピーしました", "ko": "긴 스크린샷을 클립보드에 복사했습니다", "fr": "Capture longue copiée dans le presse-papiers", "ru": "Длинный скриншот скопирован в буфер обмена", "vi": "Đã sao chép ảnh chụp dài vào bộ nhớ tạm"},
 }
 
 root = pathlib.Path(__file__).resolve().parent.parent

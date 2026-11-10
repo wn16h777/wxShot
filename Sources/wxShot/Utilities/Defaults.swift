@@ -1106,31 +1106,6 @@ struct Defaults {
         }
     }
 
-    static var recentEmojis: [String] {
-        get {
-            normalizedEmojiList(defaults.stringArray(forKey: "recentEmojis") ?? [])
-        }
-        set {
-            let normalized = normalizedEmojiList(newValue)
-            if normalized.isEmpty {
-                defaults.removeObject(forKey: "recentEmojis")
-            } else {
-                defaults.set(normalized, forKey: "recentEmojis")
-            }
-        }
-    }
-
-    private static func normalizedEmojiList(_ values: [String]) -> [String] {
-        var result: [String] = []
-        for value in values {
-            let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmed.isEmpty, !result.contains(trimmed) else { continue }
-            result.append(trimmed)
-            if result.count == 10 { break }
-        }
-        return result
-    }
-
     private static func normalizedHexColor(_ hex: String?) -> String? {
         guard var trimmed = hex?.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() else {
             return nil

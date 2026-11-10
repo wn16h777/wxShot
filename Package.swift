@@ -35,8 +35,6 @@ let package = Package(
                 .linkedFramework("AVFoundation"),
                 .linkedFramework("AVKit"),
                 .linkedFramework("ScreenCaptureKit"),
-                .linkedFramework("Vision"),
-                .linkedFramework("VisionKit"),
                 .linkedFramework("CoreImage"),
                 .linkedFramework("ImageIO"),
                 .linkedFramework("UniformTypeIdentifiers"),

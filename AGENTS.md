@@ -18,15 +18,15 @@ vendored PermissionFlow.
 - Capture is one session at a time: `AppDelegate.overlayController` is the only slot, and the hotkey is ignored while it is occupied. Hotkey → `startCapture` → `Capture/OverlayWindowController.swift` (~2000 lines; the state machine for the freeze-frame overlay, `SelectionView` region selection, magnifier, window detection) → `Capture/ImageEditLauncher.swift` → the editor. Suspending the editor parks a `SuspendedEditDraft`; pressing the shortcut again resumes it instead of starting over. On completion the image goes to the clipboard via `ImageOutputEncoder` + `ClipboardManager` and the slot clears.
 - Every other image source — full-screen capture, quick pin, clipboard image, Finder file, re-editing a pin — funnels through `ImageEditLauncher` into `OverlayWindowController(presetImage:)`, so there is exactly one editor path.
 - The editor (`Editor/EditWindowController.swift` + `EditCanvasView.swift`, the two biggest files) is WeChat's toolbar rebuilt: `Editor/ToolbarLayout.default` defines tool order, `ToolbarIcons.swift` hand-draws the icons, `ToolbarView.groupEnds` draws the separators.
-- Feature offshoots off that spine: `Capture/ScrollCapturer.swift` + `AutoScroller.swift` (long screenshot), `OCR/OCRService.swift` (Vision) with `TextRecognitionPanel` and `OCR/TranslationBridge.swift` (Apple Translation, macOS 15+), `Capture/PinLauncher.swift` (pinned images).
+- Feature offshoots off that spine: `Capture/PinLauncher.swift` (pinned images). This fork removed upstream's long screenshot (`ScrollCapturer`/`AutoScroller`), OCR (`OCR/`) and translate — do not reintroduce them.
 - This fork makes **zero network requests**: upstream's `Telemetry/SurvivalReporter.swift` and `Utilities/UpdateChecker.swift` (plus the website/GitHub/feedback UI) were removed. Do not reintroduce network access.
 - Localization source of truth is the `S` dictionary in `scripts/add_strings.py`: add the key with both translations there, run `python3 scripts/add_strings.py` (idempotent) to sync `Resources/*.lproj/Localizable.strings`, then add the accessor in `Utilities/L10n+wxShot.swift`.
 
 ## Product rules
 - Free, no upload code, **no network access at all** — this fork stripped upstream's survival telemetry, update check and feedback/website links. Nothing may talk to the network.
-- Default shortcut ⌃⌘A (WeChat for Mac's own screenshot key, so handover is seamless). The shortcut is registered only while `WeChatMonitor.shouldOwnShortcut()` is true.
+- Default shortcut ⌃⌘A (WeChat for Mac's own screenshot key, so handover is seamless). Coexistence is single-mode and hardcoded in `WeChatMonitor.shouldOwnShortcut()`: WeChat signed in → WeChat owns the key; otherwise wxShot does. The upstream policy picker (auto/alwaysUs/yieldWhenRunning) was removed.
 - Only Screen Recording permission is required. Do not add Accessibility or Input Monitoring requirements.
 - New user-facing strings go through `scripts/add_strings.py` (2 languages: en + zh-Hans) and `Utilities/L10n+wxShot.swift`.
-- Keep the editor toolbar in `ToolbarLayout.default` aligned with WeChat's (plus a ··· more menu and a settings gear at the far right; icons are hand-drawn in `Editor/ToolbarIcons.swift`); `ToolbarView.groupEnds` draws the separators.
-- Translate uses Apple on-device Translation (macOS 15+, `OCR/TranslationBridge.swift`); share uses the system share sheet.
+- The editor toolbar in `ToolbarLayout.default` is this fork's trimmed bar: rectangle, ellipse, arrow, pen, mosaic, text | undo, save, pin, share, close, confirm, plus a ··· more menu and a settings gear at the far right (icons are hand-drawn in `Editor/ToolbarIcons.swift`; `ToolbarView.groupEnds` draws the separators). Emoji was removed along with OCR/translate/long-screenshot — do not reintroduce.
+- Share uses the system share sheet.
 - Maintenance budget is tiny: do not add features. Only fix macOS compatibility breaks.

@@ -74,9 +74,6 @@ class SelectionView: NSView {
         }
     }
 
-    // Scroll capture mode: update border styling while the controller manages event routing.
-    var scrollCaptureActive = false
-
     // When false, the selection frame becomes a fixed viewport.
     var selectionInteractionEnabled = true {
         didSet {
@@ -605,8 +602,7 @@ class SelectionView: NSView {
 
         // Draw pre-captured screen snapshot as background so transient
         // menus/popups remain visible even after they dismiss.
-        // Skip during scroll capture so live scrolling content shows through.
-        if let snapshot = backgroundSnapshot, !scrollCaptureActive {
+        if let snapshot = backgroundSnapshot {
             snapshot.draw(in: bounds)
         }
 
@@ -635,37 +631,19 @@ class SelectionView: NSView {
         }
 
         // Dark overlay with cutout (even-odd fill preserves snapshot underneath).
-        // During scroll capture, enlarge the cutout by 0.5pt so anti-aliasing
-        // at the cutout edge falls outside the captured rect instead of
-        // darkening its first pixel — otherwise every frame's bottom edge
-        // leaves a gray line at each stitch seam.
         let path = CGMutablePath()
         path.addRect(bounds)
-        let cutoutRect = scrollCaptureActive ? rect.insetBy(dx: -0.5, dy: -0.5) : rect
-        path.addRect(cutoutRect)
+        path.addRect(rect)
         context.setFillColor(NSColor.black.withAlphaComponent(dimmingOverlayAlpha).cgColor)
         context.addPath(path)
         context.fillPath(using: .evenOdd)
 
-        // Draw border — solid red during scroll capture, green dashed otherwise
-        if scrollCaptureActive {
-            // ScreenCaptureKit sees the overlay panel, so any stroke pixels
-            // inside `rect` bleed into every captured frame and produce thin
-            // red lines at the left/right edges and at each stitch seam.
-            // Inset enough that the stroke (and its anti-aliased fringe) sits
-            // entirely outside the captured rect.
-            let strokeWidth: CGFloat = borderWidth + 1
-            let outerInset = -(strokeWidth / 2 + 1)
-            context.setStrokeColor(NSColor.systemRed.cgColor)
-            context.setLineWidth(strokeWidth)
-            context.stroke(rect.insetBy(dx: outerInset, dy: outerInset))
-        } else {
-            context.setStrokeColor(accentColor.cgColor)
-            context.setLineWidth(borderWidth)
-            context.setLineDash(phase: 0, lengths: dashPattern)
-            context.stroke(rect.insetBy(dx: -1, dy: -1))
-            context.setLineDash(phase: 0, lengths: [])
-        }
+        // Draw border — green dashed
+        context.setStrokeColor(accentColor.cgColor)
+        context.setLineWidth(borderWidth)
+        context.setLineDash(phase: 0, lengths: dashPattern)
+        context.stroke(rect.insetBy(dx: -1, dy: -1))
+        context.setLineDash(phase: 0, lengths: [])
 
         if state == .selected && selectionInteractionEnabled {
             // Draw 8 control handles

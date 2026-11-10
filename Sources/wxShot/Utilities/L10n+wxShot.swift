@@ -8,10 +8,6 @@ extension L10n {
     static var wxSectionShortcut: String { w("wxSectionShortcut") }
     static var wxShortcutDefaultNote: String { w("wxShortcutDefaultNote") }
     static var wxSectionWeChat: String { w("wxSectionWeChat") }
-    static var wxPolicyAuto: String { w("wxPolicyAuto") }
-    static var wxPolicyAlways: String { w("wxPolicyAlways") }
-    static var wxPolicyYield: String { w("wxPolicyYield") }
-    static var wxPolicyHint: String { w("wxPolicyHint") }
     static var wxWeChatStatusNotRunning: String { w("wxWeChatStatusNotRunning") }
     static var wxWeChatStatusLoginScreen: String { w("wxWeChatStatusLoginScreen") }
     static var wxWeChatStatusLoggedIn: String { w("wxWeChatStatusLoggedIn") }
@@ -33,11 +29,5 @@ extension L10n {
     static var wxTipSettings: String { w("wxTipSettings") }
     static var wxTipShare: String { w("wxTipShare") }
     static var wxTipMore: String { w("wxTipMore") }
-    static var wxTranslateHeader: String { w("wxTranslateHeader") }
-    static var wxTranslating: String { w("wxTranslating") }
-    static var wxTranslateUnsupported: String { w("wxTranslateUnsupported") }
-    static var wxTranslateFailed: String { w("wxTranslateFailed") }
     static var wxLensCopyHint: String { w("wxLensCopyHint") }
-    static var wxScrollTooFast: String { w("wxScrollTooFast") }
-    static var wxLongShotCopied: String { w("wxLongShotCopied") }
 }

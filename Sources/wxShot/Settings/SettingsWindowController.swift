@@ -10,7 +10,6 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     private let recorder = ShortcutRecorderView()
     private let weChatStatusLabel = NSTextField(labelWithString: "")
     private let ownerLabel = NSTextField(labelWithString: "")
-    private var policyButtons: [WeChatPolicy: NSButton] = [:]
     private let permissionLabel = NSTextField(labelWithString: "")
     private let permissionButton = NSButton()
     private let launchAtLoginCheckbox = NSButton(checkboxWithTitle: "", target: nil, action: nil)
@@ -86,17 +85,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         weChatStatusLabel.font = .systemFont(ofSize: 12)
         weChatStatusLabel.textColor = .secondaryLabelColor
         stack.addArrangedSubview(weChatStatusLabel)
-        policyButtons = [:]
-        for (policy, title) in [(WeChatPolicy.auto, L10n.wxPolicyAuto),
-                                (.alwaysUs, L10n.wxPolicyAlways),
-                                (.yieldWhenRunning, L10n.wxPolicyYield)] {
-            let button = NSButton(radioButtonWithTitle: title, target: self, action: #selector(policyChanged(_:)))
-            policyButtons[policy] = button
-            stack.addArrangedSubview(button)
-        }
         ownerLabel.font = .systemFont(ofSize: 12, weight: .medium)
         stack.addArrangedSubview(ownerLabel)
-        stack.addArrangedSubview(note(L10n.wxPolicyHint))
 
         stack.addArrangedSubview(divider())
         stack.addArrangedSubview(sectionTitle(L10n.permissionsHeader))
@@ -182,7 +172,6 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         case .loginScreen: weChatStatusLabel.stringValue = L10n.wxWeChatStatusLoginScreen
         case .loggedIn: weChatStatusLabel.stringValue = L10n.wxWeChatStatusLoggedIn
         }
-        for (policy, button) in policyButtons { button.state = policy == Defaults.weChatPolicy ? .on : .off }
         let owner = WeChatMonitor.shared.shouldOwnShortcut() ? "wxShot" : L10n.wxOwnerWeChat
         ownerLabel.stringValue = L10n.wxShortcutOwner(owner)
     }
@@ -195,13 +184,6 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     }
 
     // MARK: - Actions
-
-    @objc private func policyChanged(_ sender: NSButton) {
-        guard let policy = policyButtons.first(where: { $0.value === sender })?.key else { return }
-        Defaults.weChatPolicy = policy
-        refreshWeChatSection()
-        NotificationCenter.default.post(name: .hotkeyDidChange, object: nil)
-    }
 
     @objc private func openPermissionSettings() {
         OnboardingWindowController.shared.show()

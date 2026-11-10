@@ -67,16 +67,6 @@ enum ToolbarIcons {
             return { stroke(box(2.5, 4.5, 19, 15, r: 2.2)) }
         case .ellipse:
             return { stroke(NSBezierPath(ovalIn: NSRect(x: 3, y: 3, width: 18, height: 18))) }
-        case .emoji:
-            return {
-                stroke(NSBezierPath(ovalIn: NSRect(x: 3, y: 3, width: 18, height: 18)))
-                for x in [9.0, 15.0] as [CGFloat] { NSBezierPath(ovalIn: NSRect(x: x - 1.1, y: 8.9, width: 2.2, height: 2.2)).fill() }
-                let mouth = NSBezierPath()
-                mouth.move(to: NSPoint(x: 7.8, y: 13.6))
-                mouth.line(to: NSPoint(x: 16.2, y: 13.6))
-                mouth.curve(to: NSPoint(x: 7.8, y: 13.6), controlPoint1: NSPoint(x: 15.5, y: 19), controlPoint2: NSPoint(x: 8.5, y: 19))
-                stroke(mouth, width: 1.5)
-            }
         case .arrow:
             return {
                 stroke(line([(5.5, 18.5), (18.5, 5.5)]))
@@ -111,37 +101,6 @@ enum ToolbarIcons {
                 stroke(box(3, 3, 18, 18, r: 2))
                 stroke(line([(7.5, 8), (16.5, 8)]))
                 stroke(line([(12, 8), (12, 17)]))
-            }
-        case .screenshotTranslate:
-            return {
-                let back = NSBezierPath()
-                back.move(to: NSPoint(x: 11, y: 11))
-                back.line(to: NSPoint(x: 11, y: 4.6))
-                back.curve(to: NSPoint(x: 12.6, y: 3), controlPoint1: NSPoint(x: 11, y: 3.7), controlPoint2: NSPoint(x: 11.7, y: 3))
-                back.line(to: NSPoint(x: 19.4, y: 3))
-                back.curve(to: NSPoint(x: 21, y: 4.6), controlPoint1: NSPoint(x: 20.3, y: 3), controlPoint2: NSPoint(x: 21, y: 3.7))
-                back.line(to: NSPoint(x: 21, y: 11.4))
-                back.curve(to: NSPoint(x: 19.4, y: 13), controlPoint1: NSPoint(x: 21, y: 12.3), controlPoint2: NSPoint(x: 20.3, y: 13))
-                back.line(to: NSPoint(x: 13, y: 13))
-                stroke(back)
-                stroke(line([(14.4, 10.2), (16, 5.8), (17.6, 10.2)]), width: 1.4)
-                stroke(line([(14.9, 8.8), (17.1, 8.8)]), width: 1.4)
-                stroke(box(3, 11, 10, 10, r: 1.6))
-                wen(cx: 8, cy: 16.2, s: 3.6, width: 1.3)
-            }
-        case .ocr:
-            return {
-                stroke(corners(inset: 3, length: 6))
-                wen(cx: 12, cy: 12.3, s: 6.6, width: 1.6)
-            }
-        case .scrollCapture:
-            return {
-                let frame = box(4.5, 2.5, 15, 19, r: 2)
-                frame.setLineDash([2.3, 2.3], count: 2, phase: 0)
-                stroke(frame, width: 1.5)
-                stroke(line([(12, 7), (12, 17)]))
-                stroke(line([(9.4, 9.6), (12, 7), (14.6, 9.6)]))
-                stroke(line([(9.4, 14.4), (12, 17), (14.6, 14.4)]))
             }
         case .undo, .redo:
             let flip = id == .redo
@@ -201,8 +160,6 @@ enum ToolbarIcons {
             return { stroke(line([(5.5, 5.5), (18.5, 18.5)]), width: 1.9); stroke(line([(18.5, 5.5), (5.5, 18.5)]), width: 1.9) }
         case .confirm:
             return { stroke(line([(3.5, 12.5), (9.5, 18.5), (20.5, 6)]), width: 1.9) }
-        case .more:
-            return { for x in [5.0, 12.0, 19.0] as [CGFloat] { NSBezierPath(ovalIn: NSRect(x: x - 1.7, y: 10.3, width: 3.4, height: 3.4)).fill() } }
         default:
             return nil
         }

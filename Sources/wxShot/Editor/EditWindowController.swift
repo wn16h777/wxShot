@@ -163,7 +163,6 @@ class EditWindowController {
     private var selectionViewRect: NSRect
     private let onComplete: (NSImage?) -> Void
     private let onRequestFocusReturn: (() -> Void)?
-    private let isLiveScreenCapture: Bool
     private var activeTool: EditTool = .none
 
     /// True when the capture came from clicking a single window (not a free
@@ -198,58 +197,21 @@ class EditWindowController {
     var isWaitingForWindowCaptureOutput: Bool { windowCaptureWaitAlert != nil }
     private let keepsHostWindowAcrossSpaces: Bool
 
-    // Scroll capture state
-    private var scrollCapturer: ScrollCapturer?
-    private var isScrollCapturing = false
-    private var isScrollCaptureFinalizing = false
-    private var scrollCaptureControlWindow: ScrollCaptureControlWindow?
-    private var scrollPreviewWindow: ScrollPreviewWindow?
-    /// Persistent finish hint shown inside the selection during scroll
-    /// capture. Excluded from the capture so it never appears in
-    /// the stitched long screenshot.
-    private var scrollCaptureHintWindow: ScrollCaptureHintWindow?
-    private var autoScroller: AutoScroller?
-    private var manualScrollCaptureTimer: DispatchSourceTimer?
-    /// Key monitor while wxShot is deactivated for scroll capture, so any key
-    /// stops scrolling and moves on to crop mode.
-    private var scrollCaptureKeyMonitor: Any?
-
-    // Crop mode state — shown between scroll capture and the editor so the
-    // user can trim any content auto-scroll over-shot.
-    private var isCropping = false
-    private var scrollCropView: ScrollCropView?
-    private var scrollCropControlWindow: ScrollCropControlWindow?
-
     var blocksHistoryNavigation: Bool {
-        isWaitingForWindowCaptureOutput || isScrollCaptureBusy || isCropping
-    }
-
-    private var isScrollCaptureBusy: Bool {
-        isScrollCapturing || isScrollCaptureFinalizing
+        isWaitingForWindowCaptureOutput
     }
 
     private var shouldShowSelectionChrome: Bool {
-        Self.shouldShowSelectionChrome(
-            hasPreviewImage: canvasView?.hasPreviewImage == true,
-            isScrollCaptureBusy: isScrollCaptureBusy,
-            isCropping: isCropping
-        )
+        canvasView?.hasPreviewImage != true
     }
 
-    static func shouldShowSelectionChrome(
-        hasPreviewImage: Bool,
-        isScrollCaptureBusy: Bool,
-        isCropping: Bool
-    ) -> Bool {
-        !hasPreviewImage && !isScrollCaptureBusy && !isCropping
+    static func shouldShowSelectionChrome(hasPreviewImage: Bool) -> Bool {
+        !hasPreviewImage
     }
 
-    private var isLiveScreenCaptureSession: Bool {
-        overrideBaseImage == nil && isLiveScreenCapture
-    }
-
-    private var isScrollCaptureAllowed: Bool {
-        isLiveScreenCaptureSession && !isWindowCapture
+    private static func sizeLabelText(for size: NSSize) -> String? {
+        guard size.width > 0, size.height > 0 else { return nil }
+        return "\(Int(size.width.rounded())) x \(Int(size.height.rounded()))"
     }
 
     struct RestorableState {
@@ -281,13 +243,6 @@ class EditWindowController {
     /// Whether new rectangle/ellipse annotations are filled.
     private var currentShapeFillMode: ShapeFillMode = Defaults.lastShapeFillMode
     private var currentShapeStrokeStyle: ShapeStrokeStyle = Defaults.lastShapeStrokeStyle
-    /// Marker keeps its own color/size slot so toggling between pen and
-    /// marker preserves each tool's last-used choice.
-    private var currentMarkerColor: NSColor = EditorStyleDefaults.markerColor
-    private var currentMarkerLineWidth: CGFloat = EditorStyleDefaults.markerLineWidth
-    private var currentEmoji: String?
-    private var recentEmojis: [String] = Defaults.recentEmojis
-    private var emojiPopover: NSPopover?
     /// Last color sampled from the toolbar eyedropper. Persisted locally and
     /// shown as an ink-bottle control for color-capable annotation tools.
     private var pickedColorSwatch: NSColor?
@@ -312,7 +267,6 @@ class EditWindowController {
         windowBaseImage: NSImage? = nil,
         isWindowCapture: Bool = false,
         onRequestFocusReturn: (() -> Void)? = nil,
-        isLiveScreenCapture: Bool = false,
         keepsHostWindowAcrossSpaces: Bool = false,
         onComplete: @escaping (NSImage?) -> Void
     ) {
@@ -335,7 +289,6 @@ class EditWindowController {
         self.keepsHostWindowAcrossSpaces = keepsHostWindowAcrossSpaces
         self.isWindowCapture = isWindowCapture
         self.onRequestFocusReturn = onRequestFocusReturn
-        self.isLiveScreenCapture = isLiveScreenCapture
         self.onComplete = onComplete
     }
 
@@ -417,13 +370,6 @@ class EditWindowController {
         canvas.onHistoryStateChanged = { [weak self] canUndo, canRedo in
             self?.updateHistoryButtons(canUndo: canUndo, canRedo: canRedo)
         }
-        canvas.onImageRotationChanged = { [weak self] in
-            self?.layoutRotatedImage()
-        }
-        canvas.onEmojiStamped = { [weak self] in
-            self?.handleEmojiStamped()
-        }
-
         let container = CanvasContainerView(canvasView: canvas)
         container.autoresizingMask = []
 
@@ -482,8 +428,6 @@ class EditWindowController {
             self.sideToolbarView = sv
             hostSelectionView.addSubview(sv)
         }
-
-        updateCaptureActionAvailability()
     }
 
     /// Injects the controller's action callbacks into a toolbar. Both the
@@ -513,38 +457,18 @@ class EditWindowController {
         }
 
         switch item {
-        case .insertImage:
-            showInsertImageMenu()
         case .colorPicker:
             break
         case .undo:
             _ = canvasView?.undo()
         case .redo:
             _ = canvasView?.redo()
-        case .scrollCapture:
-            toggleScrollCapture()
-        case .beautify:
-            break
-        case .rotate:
-            showRotationSubToolbar()
-        case .qrCode:
-            break
-        case .ocr:
-            performOCR()
-        case .screenshotTranslate:
-            performTranslate()
         case .share:
             share()
-        case .more:
-            showMoreMenu()
         case .save:
             save()
-        case .upload:
-            break
         case .pin:
             pin()
-        case .record:
-            break
         case .close:
             close()
         case .confirm:
@@ -553,8 +477,8 @@ class EditWindowController {
             openSettings()
         case .moveSelection:
             return false
-        case .rectangle, .ellipse, .arrow, .line, .pen, .marker, .spotlight,
-             .mosaic, .eraser, .magnifier, .numbered, .text, .emoji:
+        case .rectangle, .ellipse, .arrow, .line, .pen,
+             .mosaic, .numbered, .text:
             return false
         }
         return true
@@ -569,7 +493,6 @@ class EditWindowController {
         guard pendingWindowCaptureAction == nil else { return true }
         guard let hostWindow = hostSelectionView?.window else { return true }
         canvasView?.commitActiveTextEditing()
-        dismissEmojiPopover()
         pendingWindowCaptureAction = item
         let alert = NSAlert()
         alert.messageText = L10n.windowCapturePreparing
@@ -619,13 +542,6 @@ class EditWindowController {
         }
     }
 
-    private func updateCaptureActionAvailability() {
-        let scrollCaptureEnabled = isScrollCaptureAllowed && !isScrollCaptureBusy && canvasView?.hasPreviewImage != true
-        toolbars.forEach {
-            $0.setScrollCaptureEnabled(scrollCaptureEnabled)
-        }
-    }
-
     /// Frame the option sub-toolbars (color/size, text, beautify) anchor
     /// against — the primary toolbar when it exists, otherwise the side
     /// toolbar, so options still appear if the user emptied the primary bar.
@@ -645,16 +561,13 @@ class EditWindowController {
 
         if let overrideBaseImage,
            let currentCropRect = overrideBaseImageCropRect {
-            let rotation = canvasView?.imageRotation ?? .none
-            let transform = rotation.transform(for: overrideBaseImage.size)
-            let imageBounds = NSRect(origin: .zero, size: rotation.orientedSize(overrideBaseImage.size))
-            let orientedCropRect = FixedImageCropGeometry.adjustedSourceRect(
-                currentCropRect.applying(transform),
+            let imageBounds = NSRect(origin: .zero, size: overrideBaseImage.size)
+            let adjustedCropRect = FixedImageCropGeometry.adjustedSourceRect(
+                currentCropRect,
                 from: previousSelectionViewRect,
                 to: selectionViewRect,
                 imageBounds: imageBounds
             )
-            let adjustedCropRect = orientedCropRect.applying(transform.inverted())
             canvasView?.preserveAnnotationImagePositions(from: currentCropRect, to: adjustedCropRect)
             overrideBaseImageCropRect = adjustedCropRect
             croppedOverrideBaseImage = FixedImageCropRenderer.crop(
@@ -663,7 +576,7 @@ class EditWindowController {
             ) ?? croppedOverrideBaseImage
             canvasView?.overrideBaseImage = effectiveOverrideBaseImage
             hostSelectionView?.selectionSizeLabelOverride = Self.cropSizeLabelText(
-                rotation.orientedSize(adjustedCropRect.size)
+                adjustedCropRect.size
             )
         }
 
@@ -691,7 +604,6 @@ class EditWindowController {
         // positioning floating chrome so toolbar anchors against the right rect.
         updateCanvasFrame()
 
-        updateCaptureActionAvailability()
         repositionFloatingChrome()
     }
 
@@ -705,9 +617,8 @@ class EditWindowController {
             return viewportSize
         }
 
-        let rotation = canvasView?.imageRotation ?? .none
         let presentationScale = canvasView?.presentationScale ?? 1
-        let scale = viewportSize.width / rotation.orientedSize(image.size).width / presentationScale
+        let scale = viewportSize.width / image.size.width / presentationScale
         return NSSize(
             width: image.size.width * scale,
             height: max(1, floor(image.size.height * scale))
@@ -777,9 +688,6 @@ class EditWindowController {
         canvasView?.currentTextCallout = currentTextCallout
         canvasView?.currentShapeFillMode = currentShapeFillMode
         canvasView?.currentShapeStrokeStyle = currentShapeStrokeStyle
-        canvasView?.currentEmoji = currentEmoji
-        canvasView?.currentMarkerColor = currentMarkerColor
-        canvasView?.currentMarkerLineWidth = currentMarkerLineWidth
     }
 
     private func tool(for annotation: Annotation) -> EditTool? {
@@ -790,12 +698,8 @@ class EditWindowController {
         case is ArrowAnnotation: return .arrow
         case is LineAnnotation: return .line
         case is PenAnnotation: return .pen
-        case is MarkerAnnotation: return .marker
-        case is SpotlightAnnotation: return .spotlight
         case is MosaicAnnotation: return .mosaic
-        case is MagnifierAnnotation: return .magnifier
         case is NumberAnnotation: return .numbered
-        case is EmojiAnnotation: return .emoji
         default: return nil
         }
     }
@@ -814,16 +718,10 @@ class EditWindowController {
         case let p as PenAnnotation:
             currentColor = p.color
             currentLineWidth = p.lineWidth
-        case let m as MarkerAnnotation:
-            currentMarkerColor = m.color
-            currentMarkerLineWidth = m.lineWidth
         case let mosaic as MosaicAnnotation:
             currentMosaicBlockSize = mosaic.blockSize
             currentMosaicStyle = mosaic.style
             currentMosaicBlurRadius = mosaic.blurRadius
-        case let magnifier as MagnifierAnnotation:
-            currentColor = magnifier.color
-            currentLineWidth = magnifier.lineWidth
         case let r as RectAnnotation:
             currentColor = r.color
             currentLineWidth = r.lineWidth
@@ -847,9 +745,6 @@ class EditWindowController {
         case let n as NumberAnnotation:
             currentColor = n.color
             currentNumberSize = n.size
-        case is EmojiAnnotation:
-            currentEmoji = nil
-            canvasView?.currentEmoji = nil
         default:
             break
         }
@@ -861,10 +756,8 @@ class EditWindowController {
     }
 
     private func showSubToolbar(for tool: EditTool) {
-        dismissEmojiPopover()
         subToolbarView?.removeFromSuperview()
         subToolbarView = nil
-        toolbars.forEach { $0.setActive(false, for: .rotate) }
 
         switch tool {
         case .pen, .line:
@@ -920,33 +813,8 @@ class EditWindowController {
                     self?.setShapeStrokeStyle(style)
                 }
             )
-        case .magnifier:
-            showColorSizeSubToolbar(
-                sizes: EditorStyleDefaults.standardLineSizes,
-                dynamicColor: pickedColorSwatch,
-                currentSize: currentLineWidth,
-                onSize: { [weak self] size in
-                    self?.setCurrentDrawingLineWidth(size)
-                }
-            )
-        case .marker:
-            showColorSizeSubToolbar(
-                sizes: EditorStyleDefaults.markerLineSizes,
-                currentColor: currentMarkerColor,
-                dynamicColor: pickedColorSwatch,
-                currentSize: currentMarkerLineWidth,
-                sizeMaxValue: CGFloat(Defaults.markerLineWidthMax),
-                onColor: { [weak self] color in
-                    self?.setCurrentMarkerColor(color)
-                },
-                onSize: { [weak self] size in
-                    self?.setCurrentMarkerLineWidth(size)
-                }
-            )
         case .text:
             showTextSubToolbar()
-        case .emoji:
-            showEmojiSubToolbar()
         case .numbered:
             showColorSizeSubToolbar(
                 sizes: [CGFloat(Defaults.numberSizeDefault)],
@@ -960,9 +828,6 @@ class EditWindowController {
             )
         case .mosaic:
             showMosaicSubToolbar()
-        case .eraser:
-            // The eraser has no sub-toolbar — drag over annotations to delete.
-            break
         default:
             break
         }
@@ -1161,98 +1026,6 @@ class EditWindowController {
         subToolbarView = view
     }
 
-    private func showEmojiSubToolbar() {
-        guard let hostSelectionView, let toolbarFrame = subToolbarAnchorFrame else { return }
-        let offset: CGFloat = 0
-        let width = min(
-            EmojiSubToolbar.preferredVisibleWidth,
-            max(EmojiSubToolbar.minimumVisibleWidth, hostSelectionView.bounds.width - 16)
-        )
-        let subRect = subToolbarRect(
-            width: width,
-            height: 42,
-            toolbarFrame: toolbarFrame,
-            in: hostSelectionView.bounds,
-            offset: offset
-        )
-
-        let view = EmojiSubToolbar(
-            frame: subRect,
-            emojis: Self.recentEmojiChoices(from: recentEmojis),
-            selectedEmoji: currentEmoji
-        )
-        view.onEmojiSelected = { [weak self, weak view] emoji in
-            self?.selectEmoji(emoji, subToolbar: view, promotesToRecent: false)
-        }
-        view.onMoreRequested = { [weak self, weak view] anchor in
-            self?.showEmojiPicker(anchoredTo: anchor, subToolbar: view)
-        }
-        styleFloatingHUD(view)
-        hostSelectionView.addSubview(view)
-        subToolbarView = view
-    }
-
-    private func selectEmoji(_ emoji: String, subToolbar: EmojiSubToolbar?, promotesToRecent: Bool) {
-        currentEmoji = emoji
-        canvasView?.currentEmoji = emoji
-        let visibleEmojis = Self.recentEmojiChoices(from: recentEmojis)
-        if promotesToRecent, !visibleEmojis.contains(emoji) {
-            promoteRecentEmoji(emoji)
-            subToolbar?.emojis = Self.recentEmojiChoices(from: recentEmojis)
-        }
-        subToolbar?.selectedEmoji = emoji
-        dismissEmojiPopover()
-        bringEditorToFront()
-    }
-
-    private func showEmojiPicker(anchoredTo anchor: NSView, subToolbar: EmojiSubToolbar?) {
-        dismissEmojiPopover()
-
-        let picker = EmojiPickerView(
-            frame: NSRect(origin: .zero, size: EmojiPickerView.preferredSize),
-            emojis: Self.emojiPickerChoices,
-            selectedEmoji: currentEmoji
-        )
-        picker.onEmojiSelected = { [weak self, weak subToolbar] emoji in
-            self?.selectEmoji(emoji, subToolbar: subToolbar, promotesToRecent: true)
-        }
-
-        let viewController = NSViewController()
-        viewController.view = picker
-
-        let popover = NSPopover()
-        popover.behavior = .transient
-        popover.animates = true
-        popover.contentSize = EmojiPickerView.preferredSize
-        popover.contentViewController = viewController
-        popover.show(relativeTo: anchor.bounds, of: anchor, preferredEdge: .maxY)
-        emojiPopover = popover
-    }
-
-    private func dismissEmojiPopover() {
-        emojiPopover?.performClose(nil)
-        emojiPopover = nil
-    }
-
-    private func promoteRecentEmoji(_ emoji: String) {
-        var next = [emoji]
-        for existing in Self.recentEmojiChoices(from: recentEmojis) where existing != emoji {
-            next.append(existing)
-        }
-        for fallback in Self.defaultRecentEmojiChoices where !next.contains(fallback) {
-            next.append(fallback)
-        }
-        recentEmojis = Array(next.prefix(Self.recentEmojiLimit))
-        Defaults.recentEmojis = recentEmojis
-    }
-
-    private func handleEmojiStamped() {
-        currentEmoji = nil
-        canvasView?.currentEmoji = nil
-        (subToolbarView as? EmojiSubToolbar)?.selectedEmoji = nil
-        dismissEmojiPopover()
-        NSCursor.arrow.set()
-    }
 
     private func updateSubToolbarPosition() {
         guard
@@ -1332,416 +1105,7 @@ class EditWindowController {
         moveSelectionStartRect = nil
     }
 
-    // MARK: - Image Rotation
-
-    private func showRotationSubToolbar() {
-        guard !isScrollCaptureBusy, !isCropping,
-              let hostSelectionView, let toolbarFrame = subToolbarAnchorFrame else { return }
-        if subToolbarView is RotationSubToolbar {
-            showSubToolbar(for: activeTool)
-            return
-        }
-        selectTool(.none)
-        let view = RotationSubToolbar(frame: subToolbarRect(
-            width: 92, height: 36, toolbarFrame: toolbarFrame,
-            in: hostSelectionView.bounds, offset: 0
-        ))
-        view.onRotate = { [weak self] clockwise in self?.rotateImage(clockwise: clockwise) }
-        styleFloatingHUD(view)
-        subToolbarView = view
-        hostSelectionView.addSubview(view)
-        toolbars.forEach { $0.setActive(true, for: .rotate) }
-    }
-
-    private func rotateImage(clockwise: Bool) {
-        guard !isScrollCaptureBusy, !isCropping, let canvasView else { return }
-        canvasView.commitActiveTextEditing()
-        // A screen selection becomes a fixed image at the first rotation.
-        // Never recapture the desktop underneath the rotated document.
-        if overrideBaseImage == nil, !canvasView.hasPreviewImage {
-            guard let image = canvasView.resolveBaseImageForEditing() else { return }
-            overrideBaseImage = image
-            overrideBaseImageCropRect = NSRect(origin: .zero, size: image.size)
-            croppedOverrideBaseImage = image
-            canvasView.overrideBaseImage = image
-        }
-        canvasView.rotateImage(clockwise: clockwise)
-    }
-
-    private func layoutRotatedImage() {
-        guard let canvasView, let hostSelectionView, let hostWindow = hostSelectionView.window else { return }
-        let orientedSize = canvasView.imageRotation.orientedSize(canvasView.bounds.size)
-        guard orientedSize.width > 0, orientedSize.height > 0 else { return }
-        let visibleRect = NSRect(
-            x: screen.visibleFrame.minX - screen.frame.minX,
-            y: screen.visibleFrame.minY - screen.frame.minY,
-            width: screen.visibleFrame.width, height: screen.visibleFrame.height
-        )
-        let scale = min(1, floor(visibleRect.width * 0.70) / orientedSize.width)
-        canvasView.setPresentationScale(scale)
-        let displaySize = canvasView.orientedDisplaySize
-        let viewportSize = NSSize(
-            width: displaySize.width,
-            height: min(displaySize.height, max(1, visibleRect.height - 120))
-        )
-        let origin = NSPoint(
-            x: max(visibleRect.minX, min(selectionViewRect.midX - viewportSize.width / 2, visibleRect.maxX - viewportSize.width)),
-            y: max(visibleRect.minY, min(selectionViewRect.midY - viewportSize.height / 2, visibleRect.maxY - viewportSize.height))
-        )
-        selectionViewRect = NSRect(origin: origin, size: viewportSize)
-        selectionRect = hostWindow.convertToScreen(hostSelectionView.convert(selectionViewRect, to: nil))
-        let primaryHeight = NSScreen.screens.first?.frame.height ?? screen.frame.height
-        captureRect = CGRect(x: selectionRect.minX, y: primaryHeight - selectionRect.maxY,
-                             width: selectionRect.width, height: selectionRect.height)
-        hostSelectionView.updateSelectionRect(selectionViewRect)
-        hostSelectionView.selectionLocked = true
-        if let source = overrideBaseImage, let crop = overrideBaseImageCropRect {
-            let rotation = canvasView.imageRotation
-            let orientedCrop = crop.applying(rotation.transform(for: source.size))
-            let fullSize = rotation.orientedSize(source.size)
-            let sourceScale = displaySize.width / orientedCrop.width
-            hostSelectionView.selectionAdjustmentBounds = NSRect(
-                x: origin.x - orientedCrop.minX * sourceScale,
-                y: origin.y - orientedCrop.minY * sourceScale,
-                width: fullSize.width * sourceScale,
-                height: fullSize.height * sourceScale
-            ).intersection(visibleRect)
-        }
-        if let image = canvasView.resolveBaseImageForEditing() {
-            hostSelectionView.selectionSizeLabelOverride = Self.sizeLabelText(
-                for: canvasView.imageRotation.orientedSize(image.size)
-            )
-        }
-        canvasContainerView?.canvasSizeDidChange()
-        updateCanvasFrame()
-        updateEditorInteractionState()
-        updateCaptureActionAvailability()
-        repositionFloatingChrome()
-    }
-
-    // MARK: - Scroll Capture
-
-    private func toggleScrollCapture() {
-        // Scroll capture only makes sense for live screen content; in
-        // image-edit mode or clicked-window captures there's nothing to scroll.
-        guard isScrollCaptureAllowed else { return }
-        guard !isScrollCaptureFinalizing else { return }
-        if canvasView?.hasPreviewImage == true { return }
-        if isScrollCapturing {
-            stopScrollCapture()
-        } else {
-            // Like WeChat: clicking starts straight away and the user scrolls. Automatic scrolling needs
-            // Accessibility access, which wxShot deliberately does not ask for.
-            startScrollCapture(mode: .manual)
-        }
-    }
-
-    private enum ScrollCaptureMode {
-        case automatic
-        case manual
-    }
-
-    private func showScrollCaptureModeMenu() {
-        canvasView?.commitActiveTextEditing()
-        let menu = NSMenu()
-        menu.autoenablesItems = false
-        menu.addItem(ClosureMenuItem(title: L10n.scrollCaptureAutoScroll) { [weak self] in
-            DispatchQueue.main.async {
-                self?.startScrollCapture(mode: .automatic)
-            }
-        })
-        menu.addItem(ClosureMenuItem(title: L10n.scrollCaptureManualScroll) { [weak self] in
-            DispatchQueue.main.async {
-                self?.startScrollCapture(mode: .manual)
-            }
-        })
-        popUpToolbarMenu(menu, anchoredTo: .scrollCapture)
-    }
-
-    private func startScrollCapture(mode: ScrollCaptureMode) {
-        guard isScrollCaptureAllowed else { return }
-        guard !isScrollCaptureBusy else { return }
-        guard canvasView?.hasPreviewImage != true else { return }
-
-        if mode == .automatic {
-            // Automatic scroll posts synthetic events; without Accessibility
-            // access wxShot cannot move the target page.
-            guard AutoScroller.isPermitted else {
-                ToastWindow.show(message: L10n.autoScrollPermissionNeeded, on: screen)
-                return
-            }
-        }
-
-        isScrollCapturing = true
-        activeTool = .none
-        canvasView?.activeTool = .none
-        toolbars.forEach { $0.updateSelection(tool: .none) }
-        dismissEmojiPopover()
-        subToolbarView?.removeFromSuperview()
-        subToolbarView = nil
-        toolbars.forEach { $0.setScrollCaptureActive(true) }
-        hostSelectionView?.scrollCaptureActive = true
-        updateEditorInteractionState()
-        // The first SCK capture runs synchronously on the main thread inside
-        // ScrollCapturer.init, blocking the run loop on a semaphore. Without
-        // forcing the view to redraw + commit here, the window backing store
-        // still shows the pre-scroll-capture chrome (green dashed border and
-        // corner handles), which would appear baked into the first frame and
-        // get carried into the stitched output.
-        hostSelectionView?.display()
-        CATransaction.flush()
-
-        // Show the persistent hint inside the selection *before* the capturer
-        // takes its first (synchronous) frame, then exclude its window from the
-        // capture so it never bleeds into the stitched long screenshot.
-        let hintText = mode == .automatic ? L10n.scrollCaptureHint : L10n.scrollCaptureManualHint
-        let hintWindow = ScrollCaptureHintWindow(text: hintText)
-        hintWindow.present(in: selectionRect)
-        scrollCaptureHintWindow = hintWindow
-
-        let capturer = ScrollCapturer(
-            rect: captureRect,
-            screen: screen,
-            // Exclude the entire selection overlay, not just the hint. Its
-            // dimming cutout can leave antialiased pixels at capture edges,
-            // which become horizontal bands when frame bottoms are stitched.
-            // This also protects the final asynchronous capture after the
-            // selection view has returned to its ordinary drawing state.
-            excludingWindowNumbers: Self.scrollCaptureExcludedWindowNumbers(
-                selectionWindow: hostSelectionView?.window,
-                hintWindow: hintWindow
-            )
-        )
-        capturer.onPreviewUpdated = { [weak self] image in
-            self?.updateScrollPreview(image)
-        }
-        capturer.onScrollingTooFast = { [weak self] in
-            guard let self, self.isScrollCapturing else { return }
-            ToastWindow.show(message: L10n.wxScrollTooFast, on: self.screen, duration: 2.0)
-        }
-        scrollCapturer = capturer
-        installScrollCaptureKeyMonitor()
-        showScrollCaptureControl()
-        toolbars.forEach { $0.isHidden = true }
-        // The overlay stays click-through so scroll input reaches the page
-        // underneath. Automatic mode drops the user's input through
-        // AutoScroller's event tap; manual mode intentionally lets it pass.
-        hostSelectionView?.window?.ignoresMouseEvents = true
-        NSApp.deactivate()
-        switch mode {
-        case .automatic:
-            startAutoScroll(capturer: capturer)
-        case .manual:
-            startManualScrollCapture(capturer: capturer)
-        }
-    }
-
-    static func scrollCaptureExcludedWindowNumbers(
-        selectionWindow: NSWindow?,
-        hintWindow: NSWindow
-    ) -> [CGWindowID] {
-        [selectionWindow, hintWindow].compactMap { window in
-            guard let window, window.windowNumber > 0 else { return nil }
-            return CGWindowID(window.windowNumber)
-        }
-    }
-
-    /// Runs constant-speed automatic scrolling over the capture region. The
-    /// cursor is left unconstrained so the user can reach the stop button;
-    /// the synthetic scroll events are aimed at the region by event location.
-    private func startAutoScroll(capturer: ScrollCapturer) {
-        // Scroll ~15% of the capture height per step. Smaller steps give
-        // ~85% inter-frame overlap, which keeps the Vision-based
-        // translational image registration well inside its reliable range
-        // even on pages with repetitive content or imperfectly-detected
-        // sticky elements. Larger steps caused visible content skips in
-        // testing.
-        let stepPoints = max(60, min(180, selectionRect.height * 0.15))
-        let center = CGPoint(x: captureRect.midX, y: captureRect.midY)
-
-        let scroller = AutoScroller(
-            centerPoint: center,
-            blockingRect: captureRect,
-            stepPixels: Int(stepPoints),
-            onKeyPressed: { [weak self] in
-                guard let self, self.isScrollCapturing else { return }
-                self.stopScrollCapture()
-            }
-        )
-        autoScroller = scroller
-        scroller.start(
-            captureStep: {
-                switch capturer.captureSynchronously(expectedShiftPoints: stepPoints) {
-                case .appended: return .progressed
-                case .noNewContent: return .stalled
-                case .atFrameLimit: return .finished
-                }
-            },
-            onFinished: { [weak self] in
-                guard let self, self.isScrollCapturing else { return }
-                self.stopScrollCapture()
-            }
-        )
-    }
-
-    /// Samples the selected region while the user scrolls manually. Duplicate
-    /// frames are ignored by `ScrollCapturer`, so steady polling gives the user
-    /// a forgiving capture window without adding a second stitching path.
-    private func startManualScrollCapture(capturer: ScrollCapturer) {
-        let timer = DispatchSource.makeTimerSource(
-            queue: DispatchQueue(label: "wxshot.manual-scroll-capture", qos: .userInitiated)
-        )
-        manualScrollCaptureTimer = timer
-        // Capture as fast as ScreenCaptureKit allows: a fast scroll must never move further between two frames than
-        // the frames overlap. The capturer verifies every frame and skips duplicates.
-        timer.schedule(deadline: .now() + 0.1, repeating: 0.06, leeway: .milliseconds(10))
-        timer.setEventHandler { [weak capturer] in
-            capturer?.captureManualSynchronously()
-        }
-        timer.resume()
-    }
-
-    private func stopManualScrollCapture() {
-        manualScrollCaptureTimer?.setEventHandler {}
-        manualScrollCaptureTimer?.cancel()
-        manualScrollCaptureTimer = nil
-    }
-
-    private func stopScrollCapture() {
-        guard isScrollCapturing else { return }
-        isScrollCapturing = false
-        isScrollCaptureFinalizing = true
-        autoScroller?.stop()
-        autoScroller = nil
-        stopManualScrollCapture()
-        removeScrollCaptureKeyMonitor()
-        let finishingCapturer = scrollCapturer
-        finishingCapturer?.onPreviewUpdated = nil
-        scrollCapturer = nil
-        scrollCaptureControlWindow?.dismiss()
-        scrollCaptureControlWindow = nil
-        scrollPreviewWindow?.dismiss()
-        scrollPreviewWindow = nil
-        scrollCaptureHintWindow?.dismiss()
-        scrollCaptureHintWindow = nil
-        hostSelectionView?.window?.ignoresMouseEvents = false
-        hostSelectionView?.scrollCaptureActive = false
-        hostSelectionView?.needsDisplay = true
-        toolbars.forEach { $0.setScrollCaptureActive(false) }
-        updateEditorInteractionState()
-        updateCaptureActionAvailability()
-
-        guard let finishingCapturer else {
-            finishScrollCapture(stitchedImage: nil)
-            return
-        }
-        finishingCapturer.stopAndStitch { [weak self] stitchedImage in
-            self?.finishScrollCapture(stitchedImage: stitchedImage)
-        }
-    }
-
-    private func finishScrollCapture(stitchedImage: NSImage?) {
-        guard isScrollCaptureFinalizing else { return }
-        isScrollCaptureFinalizing = false
-
-        guard let stitchedImage else {
-            toolbars.forEach { $0.isHidden = false }
-            updateEditorInteractionState()
-            updateCaptureActionAvailability()
-            bringEditorToFront()
-            return
-        }
-
-        // Put the result on the clipboard straight away so a stray Esc can never lose it.
-        ClipboardManager.copyToClipboard(image: stitchedImage)
-        // Auto-scroll often over-shoots the end of a page, so route the
-        // stitched result through crop mode before handing it to the editor.
-        enterCropMode(with: stitchedImage)
-    }
-
-    // MARK: - Crop Mode
-
-    /// Shows the stitched long screenshot scaled to fit, with a top/bottom
-    /// crop overlay. The editor stays hidden underneath until confirmed.
-    private func enterCropMode(with image: NSImage) {
-        guard let hostSelectionView else {
-            // Defensive: no host view means the editor was already torn down.
-            finishCropFallback(with: image)
-            return
-        }
-
-        isCropping = true
-        activeTool = .none
-        canvasView?.activeTool = .none
-        toolbars.forEach { $0.updateSelection(tool: .none) }
-        toolbars.forEach { $0.isHidden = true }
-        selectionChromeOverlay?.isHidden = true
-
-        let cropView = ScrollCropView(frame: hostSelectionView.bounds, image: image)
-        cropView.autoresizingMask = [.width, .height]
-        hostSelectionView.addSubview(cropView)
-        scrollCropView = cropView
-
-        showCropControl()
-        bringEditorToFront()
-        ToastWindow.show(message: L10n.cropLongScreenshotHint, on: screen)
-    }
-
-    /// Skips crop mode and drops the image straight into the editor — only
-    /// used when there is no host view to host the crop overlay.
-    private func finishCropFallback(with image: NSImage) {
-        loadScrollCaptureImageIntoEditor(image)
-        toolbars.forEach { $0.isHidden = false }
-        bringEditorToFront()
-    }
-
-    private func confirmCrop() {
-        guard isCropping, let cropView = scrollCropView else {
-            exitCropMode()
-            return
-        }
-
-        let cropped = cropView.croppedImage()
-        exitCropMode()
-        loadScrollCaptureImageIntoEditor(cropped)
-        ClipboardManager.copyToClipboard(image: cropped)
-        ToastWindow.show(message: L10n.wxLongShotCopied, on: screen)
-    }
-
-    private func loadScrollCaptureImageIntoEditor(_ image: NSImage) {
-        canvasView?.loadPreviewImage(image)
-        hostSelectionView?.selectionSizeLabelOverride = Self.sizeLabelText(for: image.size)
-        canvasContainerView?.canvasSizeDidChange()
-        updateCanvasScrollAvailability()
-        canvasScrollView?.scrollToTop()
-        updateEditorInteractionState()
-        updateCaptureActionAvailability()
-    }
-
-    private static func sizeLabelText(for size: NSSize) -> String? {
-        guard size.width > 0, size.height > 0 else { return nil }
-        return "\(Int(size.width.rounded())) x \(Int(size.height.rounded()))"
-    }
-
-    private func exitCropMode() {
-        isCropping = false
-        scrollCropView?.removeFromSuperview()
-        scrollCropView = nil
-        scrollCropControlWindow?.dismiss()
-        scrollCropControlWindow = nil
-        selectionChromeOverlay?.isHidden = false
-        toolbars.forEach { $0.isHidden = false }
-        bringEditorToFront()
-    }
-
-    private func showCropControl() {
-        let controlWindow = ScrollCropControlWindow(
-            onConfirm: { [weak self] in self?.confirmCrop() }
-        )
-        controlWindow.positionAtBottom(of: screen)
-        scrollCropControlWindow = controlWindow
-        controlWindow.orderFrontRegardless()
-    }
+    // MARK: - Output
 
     private func save() {
         guard !deferUntilWindowCaptureReady(.save) else { return }
@@ -1864,21 +1228,6 @@ class EditWindowController {
         }
     }
 
-    /// Text-recognition action: exits the selection/editor, then opens the OCR
-    /// panel anchored to the original selection. Uses the raw capture (no
-    /// annotations) so recognition is not polluted by drawn marks.
-    private func performTranslate() {
-        guard !deferUntilWindowCaptureReady(.screenshotTranslate) else { return }
-        canvasView?.commitActiveTextEditing()
-        let baseImage = orientedBaseImageForOutput() ?? currentCompositeImage()
-        let anchorRect = selectionRect
-        let targetScreen = screen
-        tearDown()
-        onComplete(nil)
-        guard let baseImage else { return }
-        TextRecognitionPanel.present(image: baseImage, anchorRect: anchorRect, screen: targetScreen, translate: true)
-    }
-
     private var sharePickerAnchor: NSWindow?
 
     /// Hands the finished screenshot to the system share sheet. The capture overlay sits above every other window, so
@@ -1918,34 +1267,6 @@ class EditWindowController {
     private static var sharePickerAnchor: NSWindow?
     private static var sharePickerDelegate: SharePickerDelegate?
 
-    /// Items that are not on the WeChat-style bar: numbered marks, redo and the extra drawing tools.
-    private func showMoreMenu() {
-        canvasView?.commitActiveTextEditing()
-        let menu = NSMenu()
-        menu.autoenablesItems = false
-        for item in ToolbarLayout.moreMenuItems {
-            let entry = ClosureMenuItem(title: item.localizedTitle) { [weak self] in
-                DispatchQueue.main.async { _ = self?.performToolbarItem(item, togglesSelectedTool: true) }
-            }
-            entry.image = ToolbarIcons.image(for: item) ?? item.iconImage(pointSize: 14)
-            if item == .redo { entry.isEnabled = canvasView?.canRedo == true }
-            menu.addItem(entry)
-        }
-        popUpToolbarMenu(menu, anchoredTo: .more)
-    }
-
-    private func performOCR() {
-        guard !deferUntilWindowCaptureReady(.ocr) else { return }
-        canvasView?.commitActiveTextEditing()
-        let baseImage = orientedBaseImageForOutput() ?? currentCompositeImage()
-        let anchorRect = selectionRect
-        let targetScreen = screen
-        tearDown()
-        onComplete(nil)
-        guard let baseImage else { return }
-        TextRecognitionPanel.present(image: baseImage, anchorRect: anchorRect, screen: targetScreen)
-    }
-
     private func pin() {
         guard !deferUntilWindowCaptureReady(.pin) else { return }
         canvasView?.commitActiveTextEditing()
@@ -1982,7 +1303,7 @@ class EditWindowController {
 
     private func toolUsesPickedColorSwatch(_ tool: EditTool) -> Bool {
         switch tool {
-        case .rectangle, .ellipse, .line, .arrow, .pen, .marker, .numbered, .text:
+        case .rectangle, .ellipse, .line, .arrow, .pen, .numbered, .text:
             return true
         default:
             return false
@@ -2024,21 +1345,6 @@ class EditWindowController {
         Defaults.lastNumberSize = Double(clamped)
     }
 
-    private func setCurrentMarkerColor(_ color: NSColor) {
-        currentMarkerColor = color
-        canvasView?.currentMarkerColor = color
-        if let hex = Self.hex(from: color) {
-            Defaults.lastMarkerColorHex = hex
-        }
-    }
-
-    private func setCurrentMarkerLineWidth(_ size: CGFloat) {
-        let clamped = min(max(size, CGFloat(Defaults.editorLineWidthMin)), CGFloat(Defaults.markerLineWidthMax))
-        currentMarkerLineWidth = clamped
-        canvasView?.currentMarkerLineWidth = clamped
-        Defaults.lastMarkerLineWidth = Double(clamped)
-    }
-
     private func setArrowStyle(_ style: ArrowStyle) {
         currentArrowStyle = style
         canvasView?.currentArrowStyle = style
@@ -2071,65 +1377,9 @@ class EditWindowController {
         return String(format: "#%02X%02X%02X", r, g, b)
     }
 
-    private func showInsertImageMenu() {
-        canvasView?.commitActiveTextEditing()
-        let menu = NSMenu()
-        menu.autoenablesItems = false
-        menu.addItem(ClosureMenuItem(title: L10n.insertImageFromClipboard) { [weak self] in
-            self?.insertImageFromClipboard()
-        })
-        menu.addItem(ClosureMenuItem(title: L10n.insertImageFromFile) { [weak self] in
-            self?.insertImageFromFile()
-        })
-        popUpToolbarMenu(menu, anchoredTo: .insertImage)
-    }
-
-    private func insertImageFromClipboard() {
-        guard let image = ClipboardImageSource.currentImage() else {
-            ToastWindow.show(message: L10n.insertImageNoClipboardImage, on: screen)
-            bringEditorToFront()
-            return
-        }
-        insertImage(image)
-    }
-
-    private func insertImageFromFile() {
-        canvasView?.commitActiveTextEditing()
-        let panel = NSOpenPanel()
-        panel.title = L10n.insertImageChooseFile
-        panel.canChooseFiles = true
-        panel.canChooseDirectories = false
-        panel.allowsMultipleSelection = false
-        panel.allowedContentTypes = [.image]
-
-        let completion: (NSApplication.ModalResponse) -> Void = { [weak self, panel] response in
-            guard
-                response == .OK,
-                let url = panel.url,
-                let image = Self.loadImageForInsertion(from: url)
-            else {
-                self?.bringEditorToFront()
-                return
-            }
-            self?.insertImage(image)
-        }
-
-        if let hostWindow = hostSelectionView?.window {
-            panel.beginSheetModal(for: hostWindow, completionHandler: completion)
-        } else {
-            panel.begin(completionHandler: completion)
-        }
-    }
-
-    private func insertImage(_ image: NSImage) {
-        selectTool(.none)
-        _ = canvasView?.insertImage(image)
-        bringEditorToFront()
-    }
-
     private func popUpToolbarMenu(_ menu: NSMenu, anchoredTo itemID: ToolbarItemID) {
         guard let hostSelectionView else { return }
-        let anchor = toolbarItemFrameInHost(for: itemID) ?? toolbarItemFrameInHost(for: .more) ?? NSRect(
+        let anchor = toolbarItemFrameInHost(for: itemID) ?? NSRect(
             x: hostSelectionView.bounds.midX,
             y: hostSelectionView.bounds.midY,
             width: 1,
@@ -2153,67 +1403,14 @@ class EditWindowController {
         return nil
     }
 
-    private static func loadImageForInsertion(from url: URL) -> NSImage? {
-        if let data = try? Data(contentsOf: url),
-           let rep = NSBitmapImageRep(data: data) {
-            let pixelSize = NSSize(width: rep.pixelsWide, height: rep.pixelsHigh)
-            guard pixelSize.width > 0, pixelSize.height > 0 else { return nil }
-            rep.size = pixelSize
-            let image = NSImage(size: pixelSize)
-            image.addRepresentation(rep)
-            return image
-        }
-        return NSImage(contentsOf: url)
-    }
-
-    private static let recentEmojiLimit = 10
-
-    private static let defaultRecentEmojiChoices = [
-        "⭐️", "❤️", "👍", "👎", "🚀",
-        "😀", "😂", "😍", "🔥", "✅",
-    ]
-
-    private static let emojiPickerChoices = [
-        "😀", "😄", "😂", "🤣", "😍", "🤔", "😎", "🤯", "😱",
-        "😤", "🥳", "🤡", "💩", "👻", "🤖", "👽", "😈",
-        "🙈", "🙉", "🙊", "💪", "👏", "🙌", "🤝", "🫡",
-        "⭐️", "❤️", "👍", "👎", "🚀", "✅", "❌", "⚠️", "❓",
-        "🔥", "✨", "🎉", "💡", "📌", "🚩", "☝️",
-    ]
-
-    private static func recentEmojiChoices(from stored: [String]) -> [String] {
-        var result: [String] = []
-        for emoji in stored + defaultRecentEmojiChoices {
-            guard !emoji.isEmpty, !result.contains(emoji) else { continue }
-            result.append(emoji)
-            if result.count == recentEmojiLimit { break }
-        }
-        return result
-    }
-
     func confirmFromKeyboard() {
         guard !isWaitingForWindowCaptureOutput else { return }
-        // The clipboard hotkey during auto-scroll stops scrolling and moves to
-        // crop mode; during crop mode it confirms the crop. It must not copy to
-        // the clipboard until the user is actually in the editor.
-        if isScrollCaptureFinalizing {
-            return
-        }
-        if isScrollCapturing {
-            stopScrollCapture()
-            return
-        }
-        if isCropping {
-            confirmCrop()
-            return
-        }
         confirm()
     }
 
     @discardableResult
     func pinFromKeyboard() -> Bool {
         guard !isWaitingForWindowCaptureOutput else { return true }
-        guard !isScrollCaptureBusy, !isCropping else { return false }
         pin()
         return true
     }
@@ -2225,9 +1422,7 @@ class EditWindowController {
     func handleCanvasConfirmDoubleClick(_ event: NSEvent) -> Bool {
         guard let canvasView, let hostSelectionView else { return false }
 
-        guard !isScrollCaptureBusy,
-              !isCropping,
-              hostSelectionView.selectionLocked,
+        guard hostSelectionView.selectionLocked,
               hostSelectionView.selectionInteractionEnabled,
               event.window === hostSelectionView.window
         else {
@@ -2269,66 +1464,33 @@ class EditWindowController {
         )
     }
 
-    /// Save-to-file (⌘S) entry point — mirrors `confirmFromKeyboard`'s phased
-    /// behavior so the hotkey works regardless of which stage the editor is in.
+    /// Save-to-file (⌘S) entry point.
     func saveFromKeyboard() {
         guard !isWaitingForWindowCaptureOutput else { return }
-        if isScrollCaptureFinalizing {
-            return
-        }
-        if isScrollCapturing {
-            stopScrollCapture()
-            return
-        }
-        if isCropping {
-            confirmCrop()
-            return
-        }
         save()
     }
 
-    func confirmCropFromKeyboard(for event: NSEvent) -> Bool {
-        guard isCropping else { return false }
-        let blockedModifiers: NSEvent.ModifierFlags = [.command, .control, .option]
-        let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        guard modifiers.intersection(blockedModifiers).isEmpty else { return false }
-
-        switch Int(event.keyCode) {
-        case kVK_Return, kVK_ANSI_KeypadEnter:
-            confirmCrop()
-            return true
-        default:
-            return false
-        }
-    }
-
     func undoFromKeyboard(for event: NSEvent) -> Bool {
-        guard !isScrollCaptureBusy, !isCropping else { return false }
         return canvasView?.undoFromKeyboard(for: event) ?? false
     }
 
     func redoFromKeyboard(for event: NSEvent) -> Bool {
-        guard !isScrollCaptureBusy, !isCropping else { return false }
         return canvasView?.redoFromKeyboard(for: event) ?? false
     }
 
     func handleAnnotationClipboardShortcutFromKeyboard(for event: NSEvent) -> Bool {
-        guard !isScrollCaptureBusy, !isCropping else { return false }
         return canvasView?.handleAnnotationClipboardShortcutFromKeyboard(for: event) ?? false
     }
 
     func nudgeSelectedAnnotationFromKeyboard(for event: NSEvent) -> Bool {
-        guard !isScrollCaptureBusy, !isCropping else { return false }
         return canvasView?.nudgeSelectedAnnotationFromKeyboard(for: event) ?? false
     }
 
     func deleteSelectedAnnotationFromKeyboard(for event: NSEvent) -> Bool {
-        guard !isScrollCaptureBusy, !isCropping else { return false }
         return canvasView?.deleteSelectedAnnotationFromKeyboard(for: event) ?? false
     }
 
     func handleEditorShortcutFromKeyboard(for event: NSEvent) -> Bool {
-        guard !isScrollCaptureBusy, !isCropping else { return false }
         guard let shortcut = EditorShortcutRegistry.action(matching: event) else { return false }
 
         switch shortcut {
@@ -2384,25 +1546,6 @@ class EditWindowController {
             alert.window.sheetParent?.endSheet(alert.window, returnCode: .cancel)
         }
         moveSelectionStartRect = nil
-        isScrollCapturing = false
-        isScrollCaptureFinalizing = false
-        autoScroller?.stop()
-        autoScroller = nil
-        stopManualScrollCapture()
-        removeScrollCaptureKeyMonitor()
-        scrollCapturer = nil
-        isCropping = false
-        scrollCropView?.removeFromSuperview()
-        scrollCropView = nil
-        scrollCropControlWindow?.dismiss()
-        scrollCropControlWindow = nil
-        scrollCaptureControlWindow?.dismiss()
-        scrollCaptureControlWindow = nil
-        scrollPreviewWindow?.dismiss()
-        scrollPreviewWindow = nil
-        scrollCaptureHintWindow?.dismiss()
-        scrollCaptureHintWindow = nil
-        hostSelectionView?.window?.ignoresMouseEvents = false
         canvasScrollView?.removeFromSuperview()
         canvasScrollView = nil
         canvasView?.discardPotentialConfirmDoubleClick()
@@ -2411,11 +1554,9 @@ class EditWindowController {
         selectionChromeOverlay = nil
         hostSelectionView?.annotationToolActive = false
         hostSelectionView?.selectionInteractionEnabled = true
-        hostSelectionView?.scrollCaptureActive = false
         toolbars.forEach { $0.isHidden = false; $0.removeFromSuperview() }
         toolbarView = nil
         sideToolbarView = nil
-        dismissEmojiPopover()
         subToolbarView?.removeFromSuperview()
         subToolbarView = nil
     }
@@ -2474,8 +1615,8 @@ class EditWindowController {
         }
         canvasView?.restoreState(state.canvasState)
         canvasView?.captureRect = captureRect
-        if let image = canvasView?.resolveBaseImageForEditing(), let rotation = canvasView?.imageRotation {
-            hostSelectionView?.selectionSizeLabelOverride = Self.sizeLabelText(for: rotation.orientedSize(image.size))
+        if let image = canvasView?.resolveBaseImageForEditing() {
+            hostSelectionView?.selectionSizeLabelOverride = Self.sizeLabelText(for: image.size)
         }
         canvasContainerView?.canvasSizeDidChange()
         updateCanvasFrame()
@@ -2527,8 +1668,8 @@ class EditWindowController {
     }
 
     private func orientedBaseImageForOutput() -> NSImage? {
-        guard let canvasView, let image = canvasView.resolveBaseImageForEditing() else { return nil }
-        return canvasView.imageRotation.render(image)
+        guard let image = canvasView?.resolveBaseImageForEditing() else { return nil }
+        return image
     }
 
     private var isCanvasTallerThanViewport: Bool {
@@ -2577,57 +1718,9 @@ class EditWindowController {
         return windowBaseImage ?? WindowEffects.roundedCorners(image)
     }
 
-    /// While scroll capture runs wxShot is deactivated, so a local key monitor
-    /// would not fire. In automatic mode the event tap in `AutoScroller` is
-    /// the primary path; this global monitor also covers manual mode.
-    private func installScrollCaptureKeyMonitor() {
-        removeScrollCaptureKeyMonitor()
-        scrollCaptureKeyMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] _ in
-            guard let self, self.isScrollCapturing else { return }
-            self.stopScrollCapture()
-        }
-    }
-
-    private func removeScrollCaptureKeyMonitor() {
-        if let scrollCaptureKeyMonitor {
-            NSEvent.removeMonitor(scrollCaptureKeyMonitor)
-            self.scrollCaptureKeyMonitor = nil
-        }
-    }
-
-    private func updateScrollPreview(_ image: NSImage) {
-        guard isScrollCapturing else { return }
-        if scrollPreviewWindow == nil {
-            scrollPreviewWindow = ScrollPreviewWindow()
-        }
-        scrollPreviewWindow?.updatePreview(image, anchorRect: selectionRect)
-    }
-
-    private func showScrollCaptureControl() {
-        guard
-            let hostSelectionView,
-            let hostWindow = hostSelectionView.window,
-            let scrollToolbar = toolbars.first(where: { $0.contains(.scrollCapture) }),
-            let buttonFrame = scrollToolbar.scrollCaptureButtonFrame
-        else {
-            return
-        }
-
-        let frameInSelectionView = scrollToolbar.convert(buttonFrame, to: hostSelectionView)
-        let frameInWindow = hostSelectionView.convert(frameInSelectionView, to: nil)
-        let frameOnScreen = hostWindow.convertToScreen(frameInWindow)
-
-        let controlWindow = ScrollCaptureControlWindow(buttonFrame: frameOnScreen) { [weak self] in
-            self?.toggleScrollCapture()
-        }
-        scrollCaptureControlWindow = controlWindow
-        controlWindow.orderFrontRegardless()
-    }
-
     private func updateEditorInteractionState() {
         let hasPreview = canvasView?.hasPreviewImage == true
         let hasFixedImage = overrideBaseImage != nil
-        let isBlocked = isScrollCaptureBusy || isCropping
         // Once the editor is up, the canvas owns clicks inside the selection
         // rect for the entire session — drawing tools, adjust-mode handles,
         // and dragging existing annotations all go through it. The legacy
@@ -2638,8 +1731,8 @@ class EditWindowController {
         // (which sits above the canvas); the SelectionView itself stays
         // available for any clicks that fall outside the gradient frame so the
         // user can still adjust the selection.
-        hostSelectionView?.annotationToolActive = !isBlocked
-        hostSelectionView?.selectionInteractionEnabled = !(isBlocked || hasPreview)
+        hostSelectionView?.annotationToolActive = true
+        hostSelectionView?.selectionInteractionEnabled = !hasPreview
         canvasScrollView?.isInteractionEnabled = (activeTool != .none) || hasPreview || hasFixedImage
         updateSelectionChromePresentation()
         hostSelectionView?.needsDisplay = true
@@ -2809,7 +1902,7 @@ class ToolbarView: NSView {
     private let items: [ToolbarItemID]
 
     /// Items that close a visual group; a thin separator follows them (WeChat's bar groups tools the same way).
-    static let groupEnds: Set<ToolbarItemID> = [.text, .scrollCapture, .confirm]
+    static let groupEnds: Set<ToolbarItemID> = [.text, .confirm]
     static let groupGap: CGFloat = 17.5
 
     /// Main-axis start offset of every button, including the extra room for separators.
@@ -2891,11 +1984,8 @@ class ToolbarView: NSView {
     func frame(for id: ToolbarItemID) -> NSRect? { buttons[id]?.frame }
 
     // Convenience wrappers so callers don't repeat the id literals.
-    func setScrollCaptureActive(_ active: Bool) { setActive(active, for: .scrollCapture) }
-    func setScrollCaptureEnabled(_ enabled: Bool) { setEnabled(enabled, for: .scrollCapture) }
     func setUndoEnabled(_ enabled: Bool) { setEnabled(enabled, for: .undo) }
     func setRedoEnabled(_ enabled: Bool) { setEnabled(enabled, for: .redo) }
-    var scrollCaptureButtonFrame: NSRect? { frame(for: .scrollCapture) }
 
     private func setupButtons() {
         let size = Self.buttonSize
@@ -3208,706 +2298,6 @@ final class MoveSelectionDragHandle: NSView {
         tint.draw(in: drawRect)
     }
 }
-
-/// Persistent "press any key to finish" hint shown centered near the top of
-/// the selection during auto-scroll. It is its own window so it can be
-/// excluded from the ScreenCaptureKit capture — otherwise it would be baked
-/// into every stitched frame of the long screenshot.
-private final class ScrollCaptureHintWindow: NSPanel {
-    private let label = NSTextField(labelWithString: "")
-    private let horizontalPadding: CGFloat = 14
-    private let verticalPadding: CGFloat = 8
-    /// Gap between the selection's top edge and the hint pill.
-    private let topInset: CGFloat = 12
-
-    init(text: String) {
-        super.init(
-            contentRect: NSRect(x: 0, y: 0, width: 10, height: 10),
-            styleMask: [.borderless, .nonactivatingPanel],
-            backing: .buffered,
-            defer: false
-        )
-
-        level = .screenSaver + 3
-        isOpaque = false
-        backgroundColor = .clear
-        hasShadow = true
-        ignoresMouseEvents = true
-        hidesOnDeactivate = false
-        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-
-        let container = AdaptiveChromeSurfaceView(style: .floating, cornerRadius: 8)
-
-        label.stringValue = text
-        label.font = NSFont.systemFont(ofSize: 13, weight: .medium)
-        label.textColor = .labelColor
-        label.alignment = .center
-        container.addSubview(label)
-        contentView = container
-    }
-
-    /// Size to the text and place top-center inside `selectionRect`
-    /// (AppKit screen coordinates).
-    func present(in selectionRect: NSRect) {
-        label.sizeToFit()
-        let textSize = label.frame.size
-        let width = textSize.width + horizontalPadding * 2
-        let height = textSize.height + verticalPadding * 2
-
-        contentView?.frame = NSRect(x: 0, y: 0, width: width, height: height)
-        label.setFrameOrigin(NSPoint(x: horizontalPadding, y: verticalPadding))
-
-        let origin = NSPoint(
-            x: selectionRect.midX - width / 2,
-            y: selectionRect.maxY - topInset - height
-        )
-        setFrame(NSRect(origin: origin, size: NSSize(width: width, height: height)), display: true)
-        orderFrontRegardless()
-    }
-
-    func dismiss() {
-        orderOut(nil)
-        contentView = nil
-    }
-}
-
-private final class ScrollCaptureControlWindow: NSPanel {
-    init(buttonFrame: NSRect, onTap: @escaping () -> Void) {
-        let padding: CGFloat = 6
-        let windowRect = NSRect(
-            x: buttonFrame.minX - padding,
-            y: buttonFrame.minY - padding,
-            width: buttonFrame.width + padding * 2,
-            height: buttonFrame.height + padding * 2
-        )
-
-        super.init(
-            contentRect: windowRect,
-            styleMask: [.borderless, .nonactivatingPanel],
-            backing: .buffered,
-            defer: false
-        )
-
-        level = .screenSaver + 4
-        isOpaque = false
-        backgroundColor = .clear
-        hasShadow = true
-        ignoresMouseEvents = false
-        hidesOnDeactivate = false
-        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-
-        contentView = ScrollCaptureControlView(
-            frame: NSRect(origin: .zero, size: windowRect.size),
-            onTap: onTap
-        )
-    }
-
-    func dismiss() {
-        orderOut(nil)
-        contentView = nil
-    }
-}
-
-private final class ScrollCaptureControlView: NSView {
-    private let onTap: () -> Void
-
-    init(frame: NSRect, onTap: @escaping () -> Void) {
-        self.onTap = onTap
-        super.init(frame: frame)
-        setup()
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-
-    private func setup() {
-        let button = ToolButton(
-            frame: bounds.insetBy(dx: 6, dy: 6),
-            symbolName: "arrow.up.and.down.text.horizontal",
-            normalColor: .labelColor,
-            selectedColor: accentGreen
-        )
-        button.isSelected = true
-        button.target = self
-        button.action = #selector(buttonTapped)
-        addSubview(button)
-    }
-
-    @objc private func buttonTapped() {
-        onTap()
-    }
-
-    override func draw(_ dirtyRect: NSRect) {
-        let path = NSBezierPath(roundedRect: bounds.insetBy(dx: 2, dy: 2), xRadius: 8, yRadius: 8)
-        AdaptiveChrome.toolbarBackground.setFill()
-        path.fill()
-    }
-}
-
-private final class RotationSubToolbar: NSView {
-    var onRotate: ((Bool) -> Void)?
-
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        for clockwise in [false, true] {
-            let button = ToolButton(
-                frame: NSRect(x: clockwise ? 54 : 10, y: 4, width: 28, height: 28),
-                symbolName: clockwise ? "rotate.right" : "rotate.left",
-                normalColor: .labelColor, selectedColor: accentGreen
-            )
-            button.hoverTip = clockwise ? L10n.tipRotateRight : L10n.tipRotateLeft
-            button.setAccessibilityLabel(button.hoverTip)
-            button.target = self
-            button.action = clockwise ? #selector(rotateRight) : #selector(rotateLeft)
-            addSubview(button)
-        }
-    }
-
-    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-
-    override func draw(_ dirtyRect: NSRect) {
-        let path = NSBezierPath(roundedRect: bounds.insetBy(dx: 2, dy: 2), xRadius: 8, yRadius: 8)
-        AdaptiveChrome.toolbarBackground.setFill()
-        path.fill()
-    }
-
-    @objc private func rotateLeft() { onRotate?(false) }
-    @objc private func rotateRight() { onRotate?(true) }
-}
-
-// MARK: - Crop Mode Control Window
-
-/// Floating confirm button shown during crop mode. Stays on screen
-/// regardless of how far the user scrolls the long screenshot.
-private final class ScrollCropControlWindow: NSPanel {
-    private static let windowSize = NSSize(width: 56, height: 44)
-
-    init(onConfirm: @escaping () -> Void) {
-        super.init(
-            contentRect: NSRect(origin: .zero, size: Self.windowSize),
-            styleMask: [.borderless, .nonactivatingPanel],
-            backing: .buffered,
-            defer: false
-        )
-
-        level = .screenSaver + 4
-        isOpaque = false
-        backgroundColor = .clear
-        hasShadow = true
-        ignoresMouseEvents = false
-        hidesOnDeactivate = false
-        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-
-        contentView = ScrollCropControlView(
-            frame: NSRect(origin: .zero, size: Self.windowSize),
-            onConfirm: onConfirm
-        )
-    }
-
-    func positionAtBottom(of screen: NSScreen) {
-        let size = frame.size
-        let visible = screen.visibleFrame
-        setFrameOrigin(NSPoint(
-            x: visible.midX - size.width / 2,
-            y: visible.minY + 36
-        ))
-    }
-
-    func dismiss() {
-        orderOut(nil)
-        contentView = nil
-    }
-}
-
-private final class ScrollCropControlView: NSView {
-    private let onConfirm: () -> Void
-
-    init(frame: NSRect, onConfirm: @escaping () -> Void) {
-        self.onConfirm = onConfirm
-        super.init(frame: frame)
-        setup()
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-
-    private func setup() {
-        let button = ToolButton(
-            frame: bounds.insetBy(dx: 6, dy: 6),
-            symbolName: "checkmark",
-            normalColor: accentGreen,
-            selectedColor: accentGreen
-        )
-        button.hoverTip = L10n.tipScrollCropConfirm
-        button.target = self
-        button.action = #selector(confirmTapped)
-        addSubview(button)
-    }
-
-    @objc private func confirmTapped() {
-        onConfirm()
-    }
-
-    override func draw(_ dirtyRect: NSRect) {
-        let path = NSBezierPath(roundedRect: bounds.insetBy(dx: 2, dy: 2), xRadius: 8, yRadius: 8)
-        AdaptiveChrome.toolbarBackground.setFill()
-        path.fill()
-    }
-}
-
-// MARK: - Scroll Preview Window
-
-private final class ScrollPreviewWindow: NSPanel {
-    private let imageView = NSImageView()
-    private let maxPreviewWidth: CGFloat = 120
-    private let maxPreviewHeight: CGFloat = 400
-    private let contentInset: CGFloat = 4
-
-    init() {
-        let initialRect = NSRect(
-            x: 0,
-            y: 0,
-            width: maxPreviewWidth + contentInset * 2,
-            height: maxPreviewHeight + contentInset * 2
-        )
-        super.init(
-            contentRect: initialRect,
-            styleMask: [.borderless, .nonactivatingPanel],
-            backing: .buffered,
-            defer: false
-        )
-        level = .screenSaver + 3
-        isOpaque = false
-        backgroundColor = .clear
-        hasShadow = true
-        ignoresMouseEvents = true
-        hidesOnDeactivate = false
-        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-
-        let containerRect = NSRect(origin: .zero, size: initialRect.size)
-        let container = AdaptiveChromeSurfaceView(
-            style: .floating,
-            cornerRadius: 8,
-            borderWidth: 0.5
-        )
-        container.frame = containerRect
-        container.autoresizingMask = [.width, .height]
-
-        imageView.imageScaling = .scaleProportionallyUpOrDown
-        imageView.imageAlignment = .alignTop
-        imageView.frame = containerRect.insetBy(dx: contentInset, dy: contentInset)
-        imageView.autoresizingMask = [.width, .height]
-        container.addSubview(imageView)
-
-        contentView = container
-    }
-
-    func updatePreview(_ image: NSImage, anchorRect: NSRect) {
-        imageView.image = image
-        let windowW = maxPreviewWidth + contentInset * 2
-        let windowH = maxPreviewHeight + contentInset * 2
-
-        // Position to the right of selection, or left if no room
-        let screenFrame = NSScreen.main?.visibleFrame ?? .zero
-        var x = anchorRect.maxX + 12
-        if x + windowW > screenFrame.maxX {
-            x = anchorRect.minX - windowW - 12
-        }
-        // Vertically align to top of selection
-        let y = anchorRect.maxY - windowH
-
-        setFrame(NSRect(x: x, y: y, width: windowW, height: windowH), display: true)
-
-        if !isVisible {
-            orderFrontRegardless()
-        }
-    }
-
-    func dismiss() {
-        orderOut(nil)
-        imageView.image = nil
-        contentView = nil
-    }
-}
-
-// MARK: - Emoji Sub-toolbar
-
-private final class EmojiSubToolbar: NSView {
-    static let preferredVisibleWidth: CGFloat = horizontalPad * 2
-        + moreButtonSize
-        + moreButtonGap
-        + CGFloat(visibleEmojiCount) * itemSize
-        + CGFloat(visibleEmojiCount - 1) * itemGap
-    static let minimumVisibleWidth: CGFloat = preferredVisibleWidth
-
-    var emojis: [String] {
-        didSet { rebuildEmojiViews() }
-    }
-    var selectedEmoji: String? {
-        didSet { updateSelection() }
-    }
-    var onEmojiSelected: ((String) -> Void)?
-    var onMoreRequested: ((NSView) -> Void)?
-
-    private let moreButton = MoreOptionsButton(
-        frame: .zero,
-        toolTip: L10n.tipMoreEmoji
-    )
-    private var emojiViews: [EmojiChoiceView] = []
-
-    private static let visibleEmojiCount = 10
-    private static let itemSize: CGFloat = 30
-    private static let itemGap: CGFloat = 4
-    private static let horizontalPad: CGFloat = 8
-    private static let moreButtonSize: CGFloat = 30
-    private static let moreButtonGap: CGFloat = 8
-
-    init(frame: NSRect, emojis: [String], selectedEmoji: String?) {
-        self.emojis = emojis
-        self.selectedEmoji = selectedEmoji
-        super.init(frame: frame)
-        setup()
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-
-    private func setup() {
-        moreButton.target = self
-        moreButton.action = #selector(showMoreEmojiPicker)
-        addSubview(moreButton)
-
-        rebuildEmojiViews()
-    }
-
-    override func layout() {
-        super.layout()
-
-        let centerY = bounds.midY
-        var x = Self.horizontalPad
-        for view in emojiViews {
-            view.frame = NSRect(
-                x: x,
-                y: centerY - Self.itemSize / 2,
-                width: Self.itemSize,
-                height: Self.itemSize
-            )
-            x += Self.itemSize + Self.itemGap
-        }
-
-        moreButton.frame = NSRect(
-            x: bounds.maxX - Self.horizontalPad - Self.moreButtonSize,
-            y: centerY - Self.moreButtonSize / 2,
-            width: Self.moreButtonSize,
-            height: Self.moreButtonSize
-        )
-    }
-
-    private func rebuildEmojiViews() {
-        for view in emojiViews {
-            view.removeFromSuperview()
-        }
-        emojiViews.removeAll()
-
-        for emoji in emojis.prefix(Self.visibleEmojiCount) {
-            let item = EmojiChoiceView(
-                frame: .zero,
-                emoji: emoji,
-                isSelected: emoji == selectedEmoji,
-                fontSize: 19
-            )
-            item.onSelect = { [weak self] emoji in
-                self?.onEmojiSelected?(emoji)
-            }
-            addSubview(item)
-            emojiViews.append(item)
-        }
-
-        needsLayout = true
-    }
-
-    private func updateSelection() {
-        for view in emojiViews {
-            view.isSelected = view.emoji == selectedEmoji
-        }
-    }
-
-    @objc private func showMoreEmojiPicker() {
-        onMoreRequested?(moreButton)
-    }
-
-    override func draw(_ dirtyRect: NSRect) {
-        let path = NSBezierPath(roundedRect: bounds.insetBy(dx: 2, dy: 2), xRadius: 8, yRadius: 8)
-        AdaptiveChrome.toolbarBackground.setFill()
-        path.fill()
-    }
-}
-
-private final class EmojiPickerView: NSView {
-    static let preferredSize = NSSize(width: 520, height: 226)
-
-    var selectedEmoji: String? {
-        didSet { updateSelection() }
-    }
-    var onEmojiSelected: ((String) -> Void)?
-
-    private let emojis: [String]
-    private var choiceViews: [EmojiChoiceView] = []
-
-    private static let gridColumns = 8
-    private static let gridItemSize: CGFloat = 32
-    private static let gridColumnGap: CGFloat = 25
-    private static let gridRowGap: CGFloat = 8
-    private static let topPad: CGFloat = 16
-    private static let maxGridItems = 40
-
-    init(frame: NSRect, emojis: [String], selectedEmoji: String?) {
-        self.emojis = emojis
-        self.selectedEmoji = selectedEmoji
-        super.init(frame: frame)
-        setup()
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-
-    private func setup() {
-        wantsLayer = true
-
-        let gridWidth = CGFloat(Self.gridColumns) * Self.gridItemSize
-            + CGFloat(Self.gridColumns - 1) * Self.gridColumnGap
-        let gridLeft = (bounds.width - gridWidth) / 2
-        let gridTopY = bounds.maxY - Self.topPad - Self.gridItemSize
-
-        for (index, emoji) in emojis.prefix(Self.maxGridItems).enumerated() {
-            let row = index / Self.gridColumns
-            let column = index % Self.gridColumns
-            addChoice(
-                emoji: emoji,
-                frame: NSRect(
-                    x: gridLeft + CGFloat(column) * (Self.gridItemSize + Self.gridColumnGap),
-                    y: gridTopY - CGFloat(row) * (Self.gridItemSize + Self.gridRowGap),
-                    width: Self.gridItemSize,
-                    height: Self.gridItemSize
-                ),
-                fontSize: 23
-            )
-        }
-    }
-
-    private func addChoice(emoji: String, frame: NSRect, fontSize: CGFloat) {
-        let item = EmojiChoiceView(
-            frame: frame,
-            emoji: emoji,
-            isSelected: emoji == selectedEmoji,
-            fontSize: fontSize
-        )
-        item.onSelect = { [weak self] emoji in
-            self?.onEmojiSelected?(emoji)
-        }
-        addSubview(item)
-        choiceViews.append(item)
-    }
-
-    private func updateSelection() {
-        for view in choiceViews {
-            view.isSelected = view.emoji == selectedEmoji
-        }
-    }
-
-    override func draw(_ dirtyRect: NSRect) {
-        let rect = bounds.insetBy(dx: 1, dy: 1)
-        let path = NSBezierPath(roundedRect: rect, xRadius: 14, yRadius: 14)
-        AdaptiveChrome.popoverBackground.setFill()
-        path.fill()
-
-        AdaptiveChrome.border.setStroke()
-        path.lineWidth = 1
-        path.stroke()
-    }
-}
-
-private final class EmojiChoiceView: NSView {
-    let emoji: String
-    var onSelect: ((String) -> Void)?
-    var isSelected: Bool {
-        didSet { needsDisplay = true }
-    }
-    private let fontSize: CGFloat
-    private var hoverTrackingArea: NSTrackingArea?
-    private var isHovering = false {
-        didSet { needsDisplay = true }
-    }
-
-    init(frame: NSRect, emoji: String, isSelected: Bool, fontSize: CGFloat) {
-        self.emoji = emoji
-        self.isSelected = isSelected
-        self.fontSize = fontSize
-        super.init(frame: frame)
-        wantsLayer = true
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-
-    override func resetCursorRects() {
-        super.resetCursorRects()
-        addCursorRect(bounds, cursor: .pointingHand)
-    }
-
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let area = hoverTrackingArea {
-            removeTrackingArea(area)
-        }
-        let area = NSTrackingArea(
-            rect: bounds,
-            options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
-            owner: self,
-            userInfo: nil
-        )
-        addTrackingArea(area)
-        hoverTrackingArea = area
-    }
-
-    override func mouseEntered(with event: NSEvent) {
-        isHovering = true
-    }
-
-    override func mouseExited(with event: NSEvent) {
-        isHovering = false
-    }
-
-    override func mouseDown(with event: NSEvent) {
-        onSelect?(emoji)
-    }
-
-    override func draw(_ dirtyRect: NSRect) {
-        if isSelected || isHovering {
-            let bg = NSBezierPath(roundedRect: bounds.insetBy(dx: 1.5, dy: 1.5), xRadius: 7, yRadius: 7)
-            (isSelected ? AdaptiveChrome.selectedFill : AdaptiveChrome.subtleFill).setFill()
-            bg.fill()
-            if isSelected {
-                accentGreen.setStroke()
-                bg.lineWidth = 1.4
-                bg.stroke()
-            }
-        }
-
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: fontSize)
-        ]
-        let size = (emoji as NSString).size(withAttributes: attributes)
-        let point = NSPoint(
-            x: bounds.midX - size.width / 2,
-            y: bounds.midY - size.height / 2
-        )
-        (emoji as NSString).draw(at: point, withAttributes: attributes)
-    }
-}
-
-private final class MoreOptionsButton: NSButton {
-    var isActive = false {
-        didSet { needsDisplay = true }
-    }
-
-    private var hoverTrackingArea: NSTrackingArea?
-    private var isHovering = false {
-        didSet { needsDisplay = true }
-    }
-
-    init(frame frameRect: NSRect, toolTip: String) {
-        super.init(frame: frameRect)
-        configure(toolTip: toolTip)
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    private func configure(toolTip: String) {
-        bezelStyle = .regularSquare
-        isBordered = false
-        setButtonType(.momentaryPushIn)
-        imagePosition = .imageOnly
-        self.toolTip = toolTip
-        setAccessibilityLabel(toolTip)
-        contentTintColor = .secondaryLabelColor
-        wantsLayer = true
-        (cell as? NSButtonCell)?.highlightsBy = []
-
-        if let image = NSImage(systemSymbolName: "ellipsis.circle", accessibilityDescription: toolTip) {
-            self.image = image.withSymbolConfiguration(
-                NSImage.SymbolConfiguration(pointSize: 17, weight: .medium)
-            )
-        }
-    }
-
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-
-    override func resetCursorRects() {
-        super.resetCursorRects()
-        addCursorRect(bounds, cursor: .pointingHand)
-    }
-
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let area = hoverTrackingArea {
-            removeTrackingArea(area)
-        }
-        let area = NSTrackingArea(
-            rect: bounds,
-            options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
-            owner: self,
-            userInfo: nil
-        )
-        addTrackingArea(area)
-        hoverTrackingArea = area
-    }
-
-    override func mouseEntered(with event: NSEvent) {
-        isHovering = true
-    }
-
-    override func mouseExited(with event: NSEvent) {
-        isHovering = false
-    }
-
-    override func draw(_ dirtyRect: NSRect) {
-        let emphasized = isHovering || isHighlighted || isActive
-        contentTintColor = isActive ? accentGreen : (emphasized ? .labelColor : .secondaryLabelColor)
-        if emphasized {
-            let bg = NSBezierPath(roundedRect: bounds.insetBy(dx: 1.5, dy: 1.5), xRadius: 7, yRadius: 7)
-            (isActive ? AdaptiveChrome.selectedFill : AdaptiveChrome.subtleFill).setFill()
-            bg.fill()
-            if isActive {
-                accentGreen.setStroke()
-                bg.lineWidth = 1.2
-                bg.stroke()
-            }
-        }
-        super.draw(dirtyRect)
-    }
-}
-
-// MARK: - Color + Size Sub-toolbar
-
 private enum ShapeStrokePreviewShape {
     case rectangle
     case ellipse
@@ -5455,8 +3845,6 @@ private final class ShapeStrokeStyleButtonView: StyleOptionView {
             hoverTip = previewShape == .rectangle ? L10n.tipRectangle : L10n.tipEllipse
         case .rounded:
             hoverTip = L10n.shapeStyleRounded
-        case .handDrawn:
-            hoverTip = L10n.shapeStyleHandDrawn
         }
     }
 
@@ -5484,13 +3872,6 @@ private final class ShapeStrokeStyleButtonView: StyleOptionView {
                 drawRoundedRectangleIcon(color: color)
             case .ellipse:
                 drawStandardIcon(color: color)
-            }
-        case .handDrawn:
-            switch previewShape {
-            case .rectangle:
-                drawHandDrawnRectangleIcon(color: color)
-            case .ellipse:
-                drawHandDrawnCircleIcon(color: color)
             }
         }
     }
@@ -5525,51 +3906,8 @@ private final class ShapeStrokeStyleButtonView: StyleOptionView {
         path.stroke()
     }
 
-    private func drawHandDrawnRectangleIcon(color: NSColor) {
-        NSGraphicsContext.current?.cgContext.setShouldAntialias(true)
 
-        let outerRect = bounds.insetBy(dx: 4.4, dy: 3.4)
-        let innerRect = NSRect(
-            x: outerRect.minX + 4.2,
-            y: outerRect.minY + 3.2,
-            width: outerRect.width - 7.4,
-            height: outerRect.height - 5.5
-        )
-        let outerRadius: CGFloat = 5.2
-        let innerRadius: CGFloat = 2.6
-        let outer = NSBezierPath(roundedRect: outerRect, xRadius: outerRadius, yRadius: outerRadius)
-        let inner = NSBezierPath(roundedRect: innerRect, xRadius: innerRadius, yRadius: innerRadius)
-        fillHandDrawnPreviewRing(outer: outer, inner: inner, color: color)
-    }
 
-    private func drawHandDrawnCircleIcon(color: NSColor) {
-        NSGraphicsContext.current?.cgContext.setShouldAntialias(true)
-
-        let outerRect = NSRect(
-            x: bounds.midX - 9.4,
-            y: bounds.midY - 6.9,
-            width: 18.8,
-            height: 13.8
-        )
-        let innerRect = NSRect(
-            x: outerRect.minX + 3.0,
-            y: outerRect.minY + 2.35,
-            width: outerRect.width - 5.7,
-            height: outerRect.height - 5.25
-        )
-        let outer = NSBezierPath(ovalIn: outerRect)
-        let inner = NSBezierPath(ovalIn: innerRect)
-        fillHandDrawnPreviewRing(outer: outer, inner: inner, color: color)
-    }
-
-    private func fillHandDrawnPreviewRing(outer: NSBezierPath, inner: NSBezierPath, color: NSColor) {
-        let shape = NSBezierPath()
-        shape.append(outer)
-        shape.append(inner)
-        shape.windingRule = .evenOdd
-        color.setFill()
-        shape.fill()
-    }
 }
 
 // MARK: - HUD Checkbox

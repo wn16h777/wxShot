@@ -9,16 +9,6 @@ enum WeChatState: Equatable {
     case loggedIn
 }
 
-/// How wxShot behaves while WeChat is running. wxShot always owns the shortcut when WeChat is not running.
-enum WeChatPolicy: String, CaseIterable {
-    /// Hand the shortcut to WeChat once it is logged in; keep it while WeChat sits on the login screen.
-    case auto
-    /// Always capture with wxShot, even while WeChat is logged in.
-    case alwaysUs
-    /// Hand the shortcut to WeChat whenever it is running.
-    case yieldWhenRunning
-}
-
 extension Notification.Name {
     static let weChatStateDidChange = Notification.Name("wxshot.weChatStateDidChange")
 }
@@ -77,16 +67,11 @@ final class WeChatMonitor {
 
     var isRunning: Bool { state != .notRunning }
 
-    /// Whether wxShot should own the screenshot shortcut right now.
-    func shouldOwnShortcut(policy: WeChatPolicy = Defaults.weChatPolicy) -> Bool {
-        switch state {
-        case .notRunning:
-            return true
-        case .loginScreen:
-            return policy != .yieldWhenRunning
-        case .loggedIn:
-            return policy == .alwaysUs
-        }
+    /// Whether wxShot should own the screenshot shortcut right now: WeChat
+    /// signed in → WeChat takes the shortcut; not running or sitting on the
+    /// login screen → wxShot does.
+    func shouldOwnShortcut() -> Bool {
+        state != .loggedIn
     }
 
     private static func currentState() -> WeChatState {

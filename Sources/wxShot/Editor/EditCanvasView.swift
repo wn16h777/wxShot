@@ -3,23 +3,16 @@ import AppKit
 enum EditTool {
     case none
     case pen
-    case marker
-    case spotlight
     case mosaic
-    case eraser
-    case magnifier
     case rectangle
     case ellipse
     case arrow
     case line
     case numbered
     case text
-    case emoji
-    case scrollCapture
 }
 
 class EditCanvasView: NSView {
-    private static let fallbackShapePreviewSeed: UInt64 = 0xC0DEC0DEC0DEC0DE
 
     var captureRect: CGRect?
     var captureScreen: NSScreen?
@@ -35,23 +28,7 @@ class EditCanvasView: NSView {
             if oldValue == .text, activeTool != .text {
                 activeTextField?.commit()
             }
-            if oldValue == .eraser, activeTool != .eraser {
-                if eraserSelection?.didDelete != true {
-                    discardPendingUndo()
-                }
-                eraserSelection = nil
-            }
-            if activeTool == .eraser {
-                selectedIndex = nil
-            }
-            if activeTool != .emoji {
-                emojiPreviewPoint = nil
-            }
-            if activeTool != .marker {
-                updateMarkerPreview(at: nil)
-            }
             if activeTool != .rectangle && activeTool != .ellipse {
-                shapeRoughSeed = nil
             }
             // Tool change can affect what counts as "interactive area" — refresh
             // cursor immediately under the current mouse position.
@@ -59,18 +36,16 @@ class EditCanvasView: NSView {
         }
     }
     private(set) var previewImage: NSImage?
-    private(set) var imageRotation: ImageRotation = .none
     private(set) var presentationScale: CGFloat = 1
-    var onImageRotationChanged: (() -> Void)?
 
     var orientedDisplaySize: NSSize {
-        imageRotation.orientedSize(NSSize(
+        NSSize(
             width: bounds.width * presentationScale,
             height: bounds.height * presentationScale
-        ))
+        )
     }
 
-    /// Keep logical coordinates stable as a rotated image is fitted on screen.
+    /// Keep logical coordinates stable as a scaled-down image is fitted on screen.
     /// AppKit applies this frame transform to subviews and event conversion too.
     func setPresentationScale(_ scale: CGFloat) {
         let logicalSize = bounds.size
@@ -78,18 +53,6 @@ class EditCanvasView: NSView {
         frameRotation = 0
         setFrameSize(NSSize(width: logicalSize.width * scale, height: logicalSize.height * scale))
         setBoundsSize(logicalSize)
-        frameRotation = imageRotation.degrees
-    }
-
-    func rotateImage(clockwise: Bool) {
-        commitActiveTextEditing()
-        cancelInFlightInteraction()
-        discardPotentialConfirmDoubleClick()
-        recordUndo()
-        imageRotation = imageRotation.turned(clockwise: clockwise)
-        onImageRotationChanged?()
-        needsDisplay = true
-        refreshCursorAtCurrentLocation()
     }
 
     /// Fallback base image used during live drawing when `previewImage` is
@@ -130,19 +93,6 @@ class EditCanvasView: NSView {
     var currentLineWidth: CGFloat = EditorStyleDefaults.standardLineWidth
     var currentNumberSize: CGFloat = EditorStyleDefaults.numberSize
     var currentArrowStyle: ArrowStyle = Defaults.lastArrowStyle
-    /// Base width for the marker brush. Drawn at `× MarkerAnnotation.brushScale`.
-    /// The hover indicator mirrors the resulting brush height, so a width
-    /// change from the sub-toolbar has to redraw it immediately.
-    var currentMarkerLineWidth: CGFloat = EditorStyleDefaults.markerLineWidth {
-        didSet {
-            guard currentMarkerLineWidth != oldValue else { return }
-            invalidateMarkerPreview(at: markerPreviewPoint, forLineWidth: oldValue)
-            invalidateMarkerPreview(at: markerPreviewPoint, forLineWidth: currentMarkerLineWidth)
-        }
-    }
-    /// Marker uses a separate color slot so switching tools keeps the
-    /// highlighter's yellow without overriding the pen's red, and vice-versa.
-    var currentMarkerColor: NSColor = EditorStyleDefaults.markerColor
     var currentMosaicBlockSize: CGFloat = CGFloat(Defaults.mosaicBlockSize)
     var currentMosaicStyle: MosaicStyle = Defaults.mosaicStyle
     var currentMosaicBlurRadius: CGFloat = CGFloat(Defaults.mosaicBlurRadius)
@@ -162,13 +112,6 @@ class EditCanvasView: NSView {
             field.sizeToFitText()
         }
     }
-    var currentEmoji: String? {
-        didSet {
-            if activeTool == .emoji {
-                needsDisplay = true
-            }
-        }
-    }
 
     // Annotations stack (supports undo)
     private var annotations: [Annotation] = []
@@ -177,14 +120,11 @@ class EditCanvasView: NSView {
     // and rebuild a smoothed bezier on every change so the live preview
     // matches the committed annotation.
     private var currentPenPoints: [NSPoint]?
-    private var currentMarkerPoints: [NSPoint]?
     private var shapeStart: NSPoint?
     private var shapeCurrent: NSPoint?
-    private var shapeRoughSeed: UInt64?
     /// Base image snapshot captured when a magnifier drag begins, reused for
     /// both the live preview and the committed lens so the (possibly
     /// expensive) base-image lookup happens only once per drag.
-    private var magnifierBaseImage: NSImage?
     private var numberCounter: Int = 1
     private var activeTextField: EditableTextField?
     /// When editing an existing text annotation, we remove it from the
@@ -207,15 +147,10 @@ class EditCanvasView: NSView {
     /// so a click that just committed an in-progress field doesn't pop a new
     /// one.
     private var pendingTextCreate: PendingTextCreate?
-    private var emojiPreviewPoint: NSPoint?
     /// Hover position of the highlighter footprint indicator. Screen-only: it
     /// is painted in `draw(_:)` and never by `drawCommittedAnnotations`, so it
     /// cannot leak into an exported or copied image.
-    private var markerPreviewPoint: NSPoint?
     private var hoveredAnnotationIndex: Int?
-    /// Active eraser drag rectangle. Matching annotations are removed as
-    /// soon as they intersect the rectangle.
-    private var eraserSelection: EraserSelection?
     private let dragThreshold: CGFloat = 4
     /// Primary selected annotation. Existing single-selection paths read this
     /// value for sub-toolbar seeding and handle editing, while `selectedIndexes`
@@ -249,9 +184,6 @@ class EditCanvasView: NSView {
     /// Fired whenever undo / redo availability changes so toolbar buttons can
     /// reflect the real history state instead of acting as no-op controls.
     var onHistoryStateChanged: ((Bool, Bool) -> Void)?
-    /// Fired after the emoji tool stamps a sticker so the controller can clear
-    /// the pending emoji without leaving the tool.
-    var onEmojiStamped: (() -> Void)?
 
     private func notifySelectionChanged() {
         guard let cb = onAnnotationSelected else { return }
@@ -322,9 +254,6 @@ class EditCanvasView: NSView {
     }
 
     private func annotationForBodyDrag(_ annotation: Annotation, by delta: NSPoint) -> Annotation {
-        if let magnifier = annotation as? MagnifierAnnotation {
-            return magnifier.translatedPreservingSourceFocus(by: delta)
-        }
         if let text = annotation as? TextAnnotation {
             return text.translatedBodyPreservingCalloutTip(by: delta)
         }
@@ -372,12 +301,6 @@ class EditCanvasView: NSView {
         var current: NSPoint
     }
 
-    private struct EraserSelection {
-        let start: NSPoint
-        var current: NSPoint
-        var didDelete: Bool
-    }
-
     /// One of the eight resize grips around a resizable annotation — four
     /// corners plus four edge midpoints. Coordinates are y-up (canvas
     /// space), so "top" maps to `maxY`.
@@ -410,7 +333,7 @@ class EditCanvasView: NSView {
     private struct HandleDragState {
         enum Kind {
             case rotate, curve, tip, textCalloutTip, secondTextCalloutTip
-            case magnifierSource, arrowStart, arrowEnd
+            case arrowStart, arrowEnd
             case resize(ResizeAnchor)
         }
         let kind: Kind
@@ -429,7 +352,6 @@ class EditCanvasView: NSView {
     private static let curveHandleSize: CGFloat = 14
     private static let tipHandleSize: CGFloat = 14
     private static let textCalloutHandleSize: CGFloat = 13
-    private static let magnifierSourceHandleSize: CGFloat = 14
     private static let endpointHandleSize: CGFloat = 12
     private static let resizeHandleSize: CGFloat = 10
     private static let actionButtonSize: CGFloat = 22
@@ -524,7 +446,6 @@ class EditCanvasView: NSView {
         fileprivate let undoStack: [EditorSnapshot]
         fileprivate let redoStack: [EditorSnapshot]
         fileprivate let previewImage: NSImage?
-        fileprivate let imageRotation: ImageRotation
         fileprivate let canvasSize: NSSize
         fileprivate let presentationScale: CGFloat
     }
@@ -535,7 +456,6 @@ class EditCanvasView: NSView {
     fileprivate struct EditorSnapshot {
         let annotations: [Annotation]
         let numberCounter: Int
-        let imageRotation: ImageRotation
     }
 
     private var undoStack: [EditorSnapshot] = []
@@ -545,7 +465,7 @@ class EditCanvasView: NSView {
     /// State immediately before the first click in a possible double-click.
     ///
     /// Drawing tools handle a single click eagerly: pen/marker can add a dot,
-    /// numbered/emoji can add an item, and text can open an editor. If the
+    /// numbered can add an item, and text can open an editor. If the
     /// second click confirms the screenshot, restore this state first so that
     /// the double-click gesture itself never changes the copied image.
     private var confirmDoubleClickBaseline: RestorableState?
@@ -557,7 +477,7 @@ class EditCanvasView: NSView {
     private static let defaultPasteOffset = NSPoint(x: 12, y: -12)
 
     private func currentSnapshot() -> EditorSnapshot {
-        EditorSnapshot(annotations: annotations, numberCounter: numberCounter, imageRotation: imageRotation)
+        EditorSnapshot(annotations: annotations, numberCounter: numberCounter)
     }
 
     func restorableState() -> RestorableState {
@@ -570,7 +490,6 @@ class EditCanvasView: NSView {
             undoStack: undoStack,
             redoStack: redoStack,
             previewImage: previewImage,
-            imageRotation: imageRotation,
             canvasSize: bounds.size,
             presentationScale: presentationScale
         )
@@ -583,7 +502,6 @@ class EditCanvasView: NSView {
         presentationScale = 1
         setFrameSize(state.canvasSize)
         setBoundsSize(state.canvasSize)
-        imageRotation = state.imageRotation
         setPresentationScale(state.presentationScale)
         annotations = state.annotations
         numberCounter = state.numberCounter
@@ -632,12 +550,9 @@ class EditCanvasView: NSView {
     }
 
     private func apply(_ snapshot: EditorSnapshot) {
-        let rotationChanged = imageRotation != snapshot.imageRotation
         annotations = snapshot.annotations
         numberCounter = snapshot.numberCounter
-        imageRotation = snapshot.imageRotation
         setSelectedIndexes(selectedIndexes, primary: primarySelectedIndex)
-        if rotationChanged { onImageRotationChanged?() }
     }
 
     /// Push current state onto the undo stack and clear the redo stack.
@@ -725,7 +640,7 @@ class EditCanvasView: NSView {
         else {
             return false
         }
-        let delta = imageRotation.documentDelta(fromDisplay: displayDelta)
+        let delta = displayDelta
         recordUndo()
         for idx in indexes {
             let annotation = annotations[idx]
@@ -813,80 +728,6 @@ class EditCanvasView: NSView {
         setSelectedIndexes(Set(annotations.indices), primary: annotations.indices.last)
         refreshCursorAtCurrentLocation()
         return true
-    }
-
-    @discardableResult
-    func insertEmoji(_ emoji: String) -> Bool {
-        activeTextField?.commit()
-        let rect = emojiRect(centeredAt: insertionCenter())
-        recordUndo()
-        annotations.append(EmojiAnnotation(emoji: emoji, rect: rect))
-        selectedIndex = annotations.indices.last
-        needsDisplay = true
-        refreshCursorAtCurrentLocation()
-        return true
-    }
-
-    @discardableResult
-    private func stampCurrentEmoji(at point: NSPoint) -> Bool {
-        guard let currentEmoji else { return false }
-        activeTextField?.commit()
-        recordUndo()
-        annotations.append(EmojiAnnotation(
-            emoji: currentEmoji,
-            rect: emojiRect(centeredAt: point)
-        ))
-        selectedIndex = annotations.indices.last
-        emojiPreviewPoint = point
-        needsDisplay = true
-        refreshCursorAtCurrentLocation()
-        return true
-    }
-
-    @discardableResult
-    func insertImage(_ image: NSImage) -> Bool {
-        activeTextField?.commit()
-        let size = fittedInsertedImageSize(for: image)
-        guard size.width > 0, size.height > 0 else { return false }
-        let rect = insertionRect(size: size)
-        recordUndo()
-        annotations.append(ImageAnnotation(image: image, rect: rect))
-        selectedIndex = annotations.indices.last
-        needsDisplay = true
-        refreshCursorAtCurrentLocation()
-        return true
-    }
-
-    private func fittedInsertedImageSize(for image: NSImage) -> NSSize {
-        let imageSize = image.size
-        guard imageSize.width > 0, imageSize.height > 0 else { return .zero }
-        let maxWidth = min(max(24, bounds.width - 16), 360)
-        let maxHeight = min(max(24, bounds.height - 16), 360)
-        let scale = min(1, maxWidth / imageSize.width, maxHeight / imageSize.height)
-        return NSSize(width: imageSize.width * scale, height: imageSize.height * scale)
-    }
-
-    private func insertionRect(size: NSSize) -> NSRect {
-        let center = insertionCenter()
-        let origin = NSPoint(x: center.x - size.width / 2, y: center.y - size.height / 2)
-        return clampedInsertionRect(NSRect(origin: origin, size: size))
-    }
-
-    private func emojiRect(centeredAt point: NSPoint) -> NSRect {
-        let size = NSSize(width: 44, height: 44)
-        return clampedInsertionRect(NSRect(
-            x: point.x - size.width / 2,
-            y: point.y - size.height / 2,
-            width: size.width,
-            height: size.height
-        ))
-    }
-
-    private func insertionCenter() -> NSPoint {
-        if let cursorPoint = currentMousePointInCanvas(), bounds.contains(cursorPoint) {
-            return cursorPoint
-        }
-        return NSPoint(x: bounds.midX, y: bounds.midY)
     }
 
     private func clampedInsertionRect(_ rect: NSRect) -> NSRect {
@@ -1069,20 +910,14 @@ class EditCanvasView: NSView {
             return a.path === b.path && a.lineWidth == b.lineWidth
                 && a.rotation == b.rotation && a.color == b.color
         }
-        if let a = a as? MarkerAnnotation, let b = b as? MarkerAnnotation {
-            return a.path === b.path && a.lineWidth == b.lineWidth
-                && a.rotation == b.rotation && a.color == b.color
-        }
         if let a = a as? RectAnnotation, let b = b as? RectAnnotation {
             return a.rect == b.rect && a.lineWidth == b.lineWidth
                 && a.fillMode == b.fillMode && a.strokeStyle == b.strokeStyle
-                && a.roughStyle == b.roughStyle
                 && a.rotation == b.rotation && a.color == b.color
         }
         if let a = a as? EllipseAnnotation, let b = b as? EllipseAnnotation {
             return a.rect == b.rect && a.lineWidth == b.lineWidth
                 && a.fillMode == b.fillMode && a.strokeStyle == b.strokeStyle
-                && a.roughStyle == b.roughStyle
                 && a.rotation == b.rotation && a.color == b.color
         }
         if let a = a as? ArrowAnnotation, let b = b as? ArrowAnnotation {
@@ -1103,21 +938,6 @@ class EditCanvasView: NSView {
             return a.rect == b.rect && a.blockSize == b.blockSize
                 && a.style == b.style && a.blurRadius == b.blurRadius
         }
-        if let a = a as? SpotlightAnnotation, let b = b as? SpotlightAnnotation {
-            return a.rect == b.rect
-        }
-        if let a = a as? MagnifierAnnotation, let b = b as? MagnifierAnnotation {
-            return a.center == b.center && a.radius == b.radius
-                && a.color == b.color && a.lineWidth == b.lineWidth
-                && a.zoom == b.zoom && a.sourceImage === b.sourceImage
-                && a.sourceCenter == b.sourceCenter
-        }
-        if let a = a as? ImageAnnotation, let b = b as? ImageAnnotation {
-            return a.image === b.image && a.rect == b.rect && a.rotation == b.rotation
-        }
-        if let a = a as? EmojiAnnotation, let b = b as? EmojiAnnotation {
-            return a.emoji == b.emoji && a.rect == b.rect && a.rotation == b.rotation
-        }
         return false
     }
 
@@ -1125,7 +945,6 @@ class EditCanvasView: NSView {
 
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
-        defer { updateMarkerPreview(at: point) }
         setHoveredAnnotationIndex(nil)
         let isShiftSelecting = event.modifierFlags
             .intersection(.deviceIndependentFlagsMask)
@@ -1154,30 +973,11 @@ class EditCanvasView: NSView {
                     guard let n = annotation as? NumberAnnotation else { return annotation }
                     return n.withNumber(max(1, n.number - 1))
                 }
-            case .zoomInMagnifier:
-                mutateSelectedAnnotationAtomic { annotation in
-                    guard let magnifier = annotation as? MagnifierAnnotation else { return annotation }
-                    return magnifier.withZoom(magnifier.zoom + MagnifierAnnotation.zoomStep)
-                }
-            case .zoomOutMagnifier:
-                mutateSelectedAnnotationAtomic { annotation in
-                    guard let magnifier = annotation as? MagnifierAnnotation else { return annotation }
-                    return magnifier.withZoom(magnifier.zoom - MagnifierAnnotation.zoomStep)
-                }
             }
             return
         }
 
-        if activeTool == .eraser {
-            activeTextField?.commit()
-            selectedIndex = nil
-            eraserSelection = EraserSelection(start: point, current: point, didDelete: false)
-            captureUndoForPending()
-            EditCanvasView.eraserCursor.set()
-            needsDisplay = true
-            return
-        }
-
+        if activeTool == .none { return }
         // Selection handles (rotate / curve / tip) take priority over body
         // drags so the user can grab a handle that visually overlaps the
         // annotation it controls.
@@ -1247,38 +1047,19 @@ class EditCanvasView: NSView {
         guard activeTool != .none else { return }
 
         switch activeTool {
-        case .none, .scrollCapture, .eraser:
+        case .none:
             return
-
-        case .emoji:
-            if stampCurrentEmoji(at: point) {
-                onEmojiStamped?()
-            }
 
         case .pen:
             currentPenPoints = [point]
 
-        case .marker:
-            currentMarkerPoints = [point]
-            updateMarkerPreview(at: point)
-
         case .rectangle, .ellipse:
             shapeStart = point
             shapeCurrent = point
-            shapeRoughSeed = RoughShapeStyle.randomSeed()
 
-        case .arrow, .line, .spotlight, .mosaic:
+        case .arrow, .line, .mosaic:
             shapeStart = point
             shapeCurrent = point
-            shapeRoughSeed = nil
-
-        case .magnifier:
-            shapeStart = point
-            shapeCurrent = point
-            shapeRoughSeed = nil
-            // Resolve the base image once; both the live preview and the
-            // committed lens sample it.
-            magnifierBaseImage = resolveBaseImageForEditing()
 
         case .numbered:
             pendingNumberCreate = PendingNumberCreate(start: point, current: point)
@@ -1291,8 +1072,6 @@ class EditCanvasView: NSView {
     override func mouseDragged(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
         setHoveredAnnotationIndex(nil)
-        // Keep the footprint under the brush tip while painting.
-        updateMarkerPreview(at: point)
 
         if let state = handleDragState {
             // First mutation of the handle drag — commit the pre-drag snapshot
@@ -1325,11 +1104,6 @@ class EditCanvasView: NSView {
             return
         }
 
-        if eraserSelection != nil {
-            updateEraserSelection(to: point)
-            return
-        }
-
         // Number tool: drag pulls an arrow tip out of the badge — preview
         // it live and commit on mouseUp.
         if var pending = pendingNumberCreate {
@@ -1352,18 +1126,14 @@ class EditCanvasView: NSView {
         guard activeTool != .none else { return }
 
         switch activeTool {
-        case .none, .scrollCapture, .numbered, .text, .eraser, .emoji:
+        case .none, .numbered, .text:
             return
 
         case .pen:
             appendStrokePoint(point, to: &currentPenPoints)
             needsDisplay = true
 
-        case .marker:
-            appendStrokePoint(point, to: &currentMarkerPoints)
-            needsDisplay = true
-
-        case .rectangle, .ellipse, .arrow, .line, .spotlight, .mosaic, .magnifier:
+        case .rectangle, .ellipse, .arrow, .line, .mosaic:
             shapeCurrent = point
             needsDisplay = true
         }
@@ -1394,16 +1164,6 @@ class EditCanvasView: NSView {
             } else {
                 selectedIndex = state.index
             }
-            refreshCursorAtCurrentLocation()
-            return
-        }
-
-        if let selection = eraserSelection {
-            eraserSelection = nil
-            if !selection.didDelete {
-                discardPendingUndo()
-            }
-            needsDisplay = true
             refreshCursorAtCurrentLocation()
             return
         }
@@ -1468,7 +1228,7 @@ class EditCanvasView: NSView {
         guard activeTool != .none else { return }
 
         switch activeTool {
-        case .none, .scrollCapture, .numbered, .text, .eraser, .emoji:
+        case .none, .numbered, .text:
             return
 
         case .pen:
@@ -1481,28 +1241,6 @@ class EditCanvasView: NSView {
                 ))
                 currentPenPoints = nil
             }
-
-        case .marker:
-            if let points = currentMarkerPoints, !points.isEmpty {
-                recordUndo()
-                annotations.append(MarkerAnnotation(
-                    path: NSBezierPath.smoothed(through: points),
-                    color: currentMarkerColor,
-                    lineWidth: currentMarkerLineWidth
-                ))
-                currentMarkerPoints = nil
-            }
-
-        case .spotlight:
-            if let start = shapeStart, let end = shapeCurrent {
-                let rect = rectFromTwoPoints(start, end)
-                if rect.width > 2, rect.height > 2 {
-                    recordUndo()
-                    annotations.append(SpotlightAnnotation(rect: rect))
-                }
-            }
-            shapeStart = nil
-            shapeCurrent = nil
 
         case .mosaic:
             if let start = shapeStart, let end = shapeCurrent {
@@ -1530,29 +1268,6 @@ class EditCanvasView: NSView {
             shapeStart = nil
             shapeCurrent = nil
 
-        case .magnifier:
-            if let start = shapeStart, let end = shapeCurrent,
-               let baseImage = magnifierBaseImage {
-                // The press point is the lens center; the drag distance is
-                // its radius, so the lens grows outward from where the user
-                // pressed.
-                let radius = hypot(end.x - start.x, end.y - start.y)
-                if radius >= MagnifierAnnotation.minRadius {
-                    recordUndo()
-                    annotations.append(MagnifierAnnotation(
-                        center: start,
-                        radius: radius,
-                        color: currentColor,
-                        lineWidth: currentLineWidth,
-                        zoom: MagnifierAnnotation.defaultZoom,
-                        sourceImage: baseImage
-                    ))
-                }
-            }
-            shapeStart = nil
-            shapeCurrent = nil
-            magnifierBaseImage = nil
-
         case .rectangle:
             if let start = shapeStart, let current = shapeCurrent {
                 let end = constrainedShapeEnd(from: start, to: current, tool: .rectangle, modifiers: event.modifierFlags)
@@ -1564,12 +1279,7 @@ class EditCanvasView: NSView {
                         color: currentColor,
                         lineWidth: currentLineWidth,
                         fillMode: currentShapeFillMode,
-                        strokeStyle: currentShapeStrokeStyle,
-                        roughStyle: RoughShapeStyle.make(
-                            seed: shapeRoughSeed ?? RoughShapeStyle.randomSeed(),
-                            rect: rect,
-                            lineWidth: currentLineWidth
-                        )
+                        strokeStyle: currentShapeStrokeStyle
                     ))
                 }
             }
@@ -1587,12 +1297,7 @@ class EditCanvasView: NSView {
                         color: currentColor,
                         lineWidth: currentLineWidth,
                         fillMode: currentShapeFillMode,
-                        strokeStyle: currentShapeStrokeStyle,
-                        roughStyle: RoughShapeStyle.make(
-                            seed: shapeRoughSeed ?? RoughShapeStyle.randomSeed(),
-                            rect: rect,
-                            lineWidth: currentLineWidth
-                        )
+                        strokeStyle: currentShapeStrokeStyle
                     ))
                 }
             }
@@ -1635,7 +1340,6 @@ class EditCanvasView: NSView {
             shapeCurrent = nil
         }
 
-        shapeRoughSeed = nil
         needsDisplay = true
         refreshCursorAtCurrentLocation()
     }
@@ -1659,20 +1363,7 @@ class EditCanvasView: NSView {
             image.draw(in: NSRect(origin: .zero, size: bounds.size))
         }
 
-        let liveSpotlightRect: NSRect? = {
-            guard
-                activeTool == .spotlight,
-                let start = shapeStart,
-                let current = shapeCurrent
-            else { return nil }
-            let rect = rectFromTwoPoints(start, current)
-            return rect.width > 0 && rect.height > 0 ? rect : nil
-        }()
-        drawCommittedAnnotations(
-            in: context,
-            bounds: bounds,
-            additionalSpotlightRect: liveSpotlightRect
-        )
+        drawCommittedAnnotations(in: context, bounds: bounds)
 
         drawActiveTextCalloutBackground(in: context)
 
@@ -1701,23 +1392,6 @@ class EditCanvasView: NSView {
             path.stroke()
         }
 
-        // Draw in-progress marker stroke (semi-transparent, brush × 6).
-        if let points = currentMarkerPoints, !points.isEmpty {
-            let path = NSBezierPath.smoothed(through: points)
-            NSGraphicsContext.saveGraphicsState()
-            let stroke = currentMarkerColor.withAlphaComponent(1.0)
-            stroke.setStroke()
-            path.lineWidth = currentMarkerLineWidth * MarkerAnnotation.brushScale
-            path.lineCapStyle = .round
-            path.lineJoinStyle = .round
-            context.setAlpha(MarkerAnnotation.markerAlpha)
-            context.beginTransparencyLayer(auxiliaryInfo: nil)
-            path.stroke()
-            context.endTransparencyLayer()
-            context.setAlpha(1.0)
-            NSGraphicsContext.restoreGraphicsState()
-        }
-
         // Draw in-progress shape preview
         if let start = shapeStart, let rawCurrent = shapeCurrent {
             let current = constrainedShapeEnd(
@@ -1737,8 +1411,7 @@ class EditCanvasView: NSView {
                     color: currentColor,
                     lineWidth: currentLineWidth,
                     fillMode: currentShapeFillMode,
-                    strokeStyle: currentShapeStrokeStyle,
-                    roughStyle: previewRoughStyle(for: rect)
+                    strokeStyle: currentShapeStrokeStyle
                 ).draw(in: context, bounds: bounds)
             case .ellipse:
                 let rect = rectFromTwoPoints(start, current)
@@ -1747,8 +1420,7 @@ class EditCanvasView: NSView {
                     color: currentColor,
                     lineWidth: currentLineWidth,
                     fillMode: currentShapeFillMode,
-                    strokeStyle: currentShapeStrokeStyle,
-                    roughStyle: previewRoughStyle(for: rect)
+                    strokeStyle: currentShapeStrokeStyle
                 ).draw(in: context, bounds: bounds)
             case .mosaic:
                 // Mosaic preview: a semi-transparent gray fill marking the
@@ -1756,10 +1428,6 @@ class EditCanvasView: NSView {
                 let rect = rectFromTwoPoints(start, current)
                 context.setFillColor(NSColor.gray.withAlphaComponent(0.5).cgColor)
                 context.fill(rect)
-            case .spotlight:
-                // The preview is composited with committed spotlights above,
-                // so multiple highlight windows share one dimming layer.
-                break
             case .line:
                 context.setLineCap(.round)
                 context.move(to: start)
@@ -1776,31 +1444,9 @@ class EditCanvasView: NSView {
                     lineWidth: currentLineWidth,
                     style: currentArrowStyle
                 ).draw(in: context, bounds: bounds)
-            case .magnifier:
-                // Live lens preview — centered on the press point, radius
-                // following the drag, sampling the base image cached when
-                // the drag began.
-                let radius = hypot(current.x - start.x, current.y - start.y)
-                if radius > 6, let baseImage = magnifierBaseImage {
-                    MagnifierAnnotation(
-                        center: start,
-                        radius: radius,
-                        color: currentColor,
-                        lineWidth: currentLineWidth,
-                        zoom: MagnifierAnnotation.defaultZoom,
-                        sourceImage: baseImage
-                    ).draw(in: context, bounds: bounds)
-                }
             default:
                 break
             }
-        }
-
-        if let eraserSelection {
-            drawEraserSelection(
-                rectFromTwoPoints(eraserSelection.start, eraserSelection.current),
-                in: context
-            )
         }
 
         // Draw number-tool preview while dragging — committed lazily on
@@ -1835,17 +1481,6 @@ class EditCanvasView: NSView {
             ).draw(in: context, bounds: bounds)
         }
 
-        if activeTool == .emoji, let currentEmoji, let emojiPreviewPoint {
-            context.saveGState()
-            context.setAlpha(0.45)
-            EmojiAnnotation(
-                emoji: currentEmoji,
-                rect: emojiRect(centeredAt: emojiPreviewPoint)
-            ).draw(in: context, bounds: bounds)
-            context.restoreGState()
-        }
-
-        drawMarkerPreview()
 
     }
 
@@ -1876,22 +1511,6 @@ class EditCanvasView: NSView {
         ).drawCalloutBackgroundOnly(in: context, bodyRect: field.frame)
     }
 
-    private func drawEraserSelection(_ rect: NSRect, in context: CGContext) {
-        guard rect.width > 0 || rect.height > 0 else { return }
-        context.saveGState()
-        context.setFillColor(NSColor.systemRed.withAlphaComponent(0.13).cgColor)
-        context.fill(rect)
-        context.setStrokeColor(NSColor.white.withAlphaComponent(0.85).cgColor)
-        context.setLineWidth(3)
-        context.setLineDash(phase: 0, lengths: [6, 4])
-        context.stroke(rect.insetBy(dx: 1.5, dy: 1.5))
-        context.setStrokeColor(NSColor.systemRed.withAlphaComponent(0.9).cgColor)
-        context.setLineWidth(1.5)
-        context.setLineDash(phase: 0, lengths: [6, 4])
-        context.stroke(rect.insetBy(dx: 0.75, dy: 0.75))
-        context.restoreGState()
-    }
-
     override func scrollWheel(with event: NSEvent) {
         guard hasPreviewImage || overrideBaseImage != nil else {
             super.scrollWheel(with: event)
@@ -1903,25 +1522,11 @@ class EditCanvasView: NSView {
 
     private func drawCommittedAnnotations(
         in context: CGContext,
-        bounds: NSRect,
-        additionalSpotlightRect: NSRect? = nil
+        bounds: NSRect
     ) {
-        var spotlightRects: [NSRect] = []
         for annotation in annotations {
-            if let spotlight = annotation as? SpotlightAnnotation {
-                spotlightRects.append(spotlight.rect)
-            } else {
-                annotation.drawApplyingTransforms(in: context, bounds: bounds)
-            }
+            annotation.drawApplyingTransforms(in: context, bounds: bounds)
         }
-        if let additionalSpotlightRect {
-            spotlightRects.append(additionalSpotlightRect)
-        }
-        SpotlightAnnotation.drawDimmingOverlay(
-            highlightRects: spotlightRects,
-            in: context,
-            bounds: bounds
-        )
     }
 
     // MARK: - Composite
@@ -1975,8 +1580,7 @@ class EditCanvasView: NSView {
             innerImage = baseImage
         }
 
-        guard let orientedImage = imageRotation.render(innerImage) else { return nil }
-        return orientedImage
+        return innerImage
     }
 
     private static func makeCompositeBitmapRep(matching image: NSImage) -> NSBitmapImageRep? {
@@ -2009,7 +1613,6 @@ class EditCanvasView: NSView {
         frameRotation = 0
         setFrameSize(NSSize(width: size.width * presentationScale, height: size.height * presentationScale))
         setBoundsSize(size)
-        frameRotation = imageRotation.degrees
         needsDisplay = true
     }
 
@@ -2026,8 +1629,7 @@ class EditCanvasView: NSView {
             x: oldViewport.minX - newViewport.minX,
             y: oldViewport.minY - newViewport.minY
         )
-        let localDelta = imageRotation.documentDelta(fromDisplay: displayDelta)
-        let delta = NSPoint(x: localDelta.x / presentationScale, y: localDelta.y / presentationScale)
+        let delta = NSPoint(x: displayDelta.x / presentationScale, y: displayDelta.y / presentationScale)
         translateAnnotationCoordinates(by: delta)
     }
 
@@ -2051,8 +1653,7 @@ class EditCanvasView: NSView {
         func translatedSnapshot(_ snapshot: EditorSnapshot) -> EditorSnapshot {
             EditorSnapshot(
                 annotations: translatedAnnotations(snapshot.annotations),
-                numberCounter: snapshot.numberCounter,
-                imageRotation: snapshot.imageRotation
+                numberCounter: snapshot.numberCounter
             )
         }
 
@@ -2065,7 +1666,6 @@ class EditCanvasView: NSView {
                 undoStack: state.undoStack.map(translatedSnapshot),
                 redoStack: state.redoStack.map(translatedSnapshot),
                 previewImage: state.previewImage,
-                imageRotation: state.imageRotation,
                 canvasSize: state.canvasSize,
                 presentationScale: state.presentationScale
             )
@@ -2107,22 +1707,13 @@ class EditCanvasView: NSView {
 
     private func cancelInFlightInteraction() {
         currentPenPoints = nil
-        currentMarkerPoints = nil
         shapeStart = nil
         shapeCurrent = nil
-        shapeRoughSeed = nil
-        magnifierBaseImage = nil
         dragState = nil
         handleDragState = nil
         pendingNumberCreate = nil
         pendingTextCreate = nil
-        emojiPreviewPoint = nil
-        markerPreviewPoint = nil
         hoveredAnnotationIndex = nil
-        if eraserSelection?.didDelete != true {
-            discardPendingUndo()
-        }
-        eraserSelection = nil
         selectedIndex = nil
         activeTextField?.cancel()
     }
@@ -2150,12 +1741,9 @@ class EditCanvasView: NSView {
 
     private var canShowHoverHighlight: Bool {
         activeTextField == nil
-            && activeTool != .eraser
             && dragState == nil
             && handleDragState == nil
-            && eraserSelection == nil
             && currentPenPoints == nil
-            && currentMarkerPoints == nil
             && shapeStart == nil
             && pendingNumberCreate == nil
             && pendingTextCreate == nil
@@ -2174,29 +1762,6 @@ class EditCanvasView: NSView {
             return
         }
         setHoveredAnnotationIndex(hitTestAnnotation(at: point))
-    }
-
-    private func updateEraserSelection(to point: NSPoint) {
-        guard var selection = eraserSelection else { return }
-        selection.current = point
-        eraseAnnotations(in: rectFromTwoPoints(selection.start, point), selection: &selection)
-        eraserSelection = selection
-        needsDisplay = true
-    }
-
-    private func eraseAnnotations(in rect: NSRect, selection: inout EraserSelection) {
-        guard rect.width >= 1 || rect.height >= 1 else { return }
-        let kept = annotations.filter { !annotationSelectionBounds($0).intersects(rect) }
-        guard kept.count != annotations.count else { return }
-
-        if !selection.didDelete {
-            commitPendingUndo()
-            selection.didDelete = true
-        }
-        annotations = kept
-        selectedIndex = nil
-        resetNumberCounterIfNumberAnnotationsAreGone()
-        refreshCursorAtCurrentLocation()
     }
 
     private func annotationSelectionBounds(_ annotation: Annotation) -> NSRect {
@@ -2410,13 +1975,6 @@ class EditCanvasView: NSView {
         )
     }
 
-    private func previewRoughStyle(for rect: NSRect) -> RoughShapeStyle {
-        RoughShapeStyle.make(
-            seed: shapeRoughSeed ?? Self.fallbackShapePreviewSeed,
-            rect: rect,
-            lineWidth: currentLineWidth
-        )
-    }
 
     private func constrainedShapeEnd(
         from start: NSPoint,
@@ -2571,13 +2129,6 @@ class EditCanvasView: NSView {
         return rotated(text.secondCalloutHandlePoint, for: annotation)
     }
 
-    /// Center source control for a magnifier. It starts in the middle of the
-    /// lens, then follows the detached sample point after the user drags it.
-    private func magnifierSourceHandleCenter(for annotation: Annotation) -> NSPoint? {
-        guard let magnifier = annotation as? MagnifierAnnotation else { return nil }
-        return magnifier.sourceCenter ?? magnifier.center
-    }
-
     /// Start (tail) endpoint handle for a straight/curved arrow or a line —
     /// sits at the `startPoint` so the user can re-anchor that end.
     private func arrowStartHandleCenter(for annotation: Annotation) -> NSPoint? {
@@ -2635,20 +2186,6 @@ class EditCanvasView: NSView {
         return NSRect(x: centerX - s / 2, y: centerY - s / 2, width: s, height: s)
     }
 
-    /// +/- buttons under a selected magnifier. Uses the same visual language
-    /// as numbered-badge steppers, but controls the lens' sampling scale.
-    private func magnifierZoomButtonRect(for annotation: Annotation, increment: Bool) -> NSRect? {
-        guard let magnifier = annotation as? MagnifierAnnotation else { return nil }
-        let s = EditCanvasView.numberStepButtonSize
-        let gap: CGFloat = 4
-        let dropBelow: CGFloat = 9
-        let centerY = magnifier.center.y - magnifier.radius - dropBelow - s / 2
-        let centerX = increment
-            ? magnifier.center.x + gap / 2 + s / 2
-            : magnifier.center.x - gap / 2 - s / 2
-        return NSRect(x: centerX - s / 2, y: centerY - s / 2, width: s, height: s)
-    }
-
     private func drawHoverHighlight(for annotation: Annotation, in context: CGContext) {
         if drawsHoverBody(for: annotation) {
             context.saveGState()
@@ -2674,11 +2211,9 @@ class EditCanvasView: NSView {
         case let ellipse as EllipseAnnotation:
             return !ellipse.filled
         case is PenAnnotation,
-             is MarkerAnnotation,
              is ArrowAnnotation,
              is LineAnnotation,
-             is NumberAnnotation,
-             is MagnifierAnnotation:
+             is NumberAnnotation:
             return true
         default:
             return false
@@ -2844,18 +2379,6 @@ class EditCanvasView: NSView {
             }
         }
 
-        // 4c. Magnifier source handle — starts at the lens center and can be
-        // pulled out to magnify another part of the captured image.
-        if let source = magnifierSourceHandleCenter(for: annotation) {
-            drawHandleDot(
-                at: source,
-                size: EditCanvasView.magnifierSourceHandleSize,
-                fill: NSColor.white.withAlphaComponent(0.95),
-                stroke: accentGreen,
-                in: context
-            )
-        }
-
         // 4d. Arrow endpoint handles — re-anchor the tail / redirect the tip.
         if let start = arrowStartHandleCenter(for: annotation) {
             drawHandleDot(
@@ -2911,27 +2434,6 @@ class EditCanvasView: NSView {
                 in: incRect,
                 symbolName: "plus",
                 symbolPointSize: 9,
-                in: context
-            )
-        }
-
-        // 8. Magnifier zoom stepper — small +/- buttons under the lens so
-        // the user can tune the sampled region without re-creating it.
-        if let magnifier = annotation as? MagnifierAnnotation,
-           let decRect = magnifierZoomButtonRect(for: annotation, increment: false),
-           let incRect = magnifierZoomButtonRect(for: annotation, increment: true) {
-            drawActionButton(
-                in: decRect,
-                symbolName: "minus",
-                symbolPointSize: 9,
-                enabled: magnifier.zoom > MagnifierAnnotation.minZoom,
-                in: context
-            )
-            drawActionButton(
-                in: incRect,
-                symbolName: "plus",
-                symbolPointSize: 9,
-                enabled: magnifier.zoom < MagnifierAnnotation.maxZoom,
                 in: context
             )
         }
@@ -3021,7 +2523,6 @@ class EditCanvasView: NSView {
     enum SelectionAction {
         case delete, edit
         case incrementNumber, decrementNumber
-        case zoomInMagnifier, zoomOutMagnifier
     }
 
     /// Top-right action buttons (delete, edit) — clicked, not dragged.
@@ -3047,14 +2548,6 @@ class EditCanvasView: NSView {
            incRect.contains(point) {
             return .incrementNumber
         }
-        if let decRect = magnifierZoomButtonRect(for: annotation, increment: false),
-           decRect.contains(point) {
-            return .zoomOutMagnifier
-        }
-        if let incRect = magnifierZoomButtonRect(for: annotation, increment: true),
-           incRect.contains(point) {
-            return .zoomInMagnifier
-        }
         return nil
     }
 
@@ -3062,11 +2555,7 @@ class EditCanvasView: NSView {
     private func isResizable(_ annotation: Annotation) -> Bool {
         annotation is RectAnnotation
             || annotation is EllipseAnnotation
-            || annotation is SpotlightAnnotation
             || annotation is MosaicAnnotation
-            || annotation is MagnifierAnnotation
-            || annotation is ImageAnnotation
-            || annotation is EmojiAnnotation
     }
 
     private func resizeHandlePoint(_ anchor: ResizeAnchor, for annotation: Annotation) -> NSPoint {
@@ -3080,13 +2569,6 @@ class EditCanvasView: NSView {
             idx < annotations.count
         else { return nil }
         let annotation = annotations[idx]
-
-        if let source = magnifierSourceHandleCenter(for: annotation) {
-            let r = EditCanvasView.magnifierSourceHandleSize / 2 + 5
-            if hypot(point.x - source.x, point.y - source.y) <= r {
-                return .magnifierSource
-            }
-        }
 
         // Resize grips — checked before body drags so a corner grip wins on
         // the same pixels.
@@ -3244,13 +2726,6 @@ class EditCanvasView: NSView {
                 annotations[state.index] = text.withSecondCalloutTip(point)
             }
 
-        case .magnifierSource:
-            guard let magnifier = state.original as? MagnifierAnnotation else { return }
-            let point = clampedToCanvas(currentMouse)
-            let dist = hypot(point.x - magnifier.center.x, point.y - magnifier.center.y)
-            let source = dist < MagnifierAnnotation.sourceResetDistance ? nil : point
-            annotations[state.index] = magnifier.withSourceCenter(source)
-
         case .arrowStart:
             if let arrow = state.original as? ArrowAnnotation {
                 let newStart = constrainedEndpoint(
@@ -3285,26 +2760,7 @@ class EditCanvasView: NSView {
             let shiftIsDown = NSEvent.modifierFlags
                 .intersection(.deviceIndependentFlagsMask)
                 .contains(.shift)
-            if let magnifier = state.original as? MagnifierAnnotation {
-                // Circular lens — keep the center pinned and set the radius
-                // to the cursor's distance from it. Every grip behaves the
-                // same; it's the natural gesture for a circle.
-                let r = hypot(
-                    currentMouse.x - magnifier.center.x,
-                    currentMouse.y - magnifier.center.y
-                )
-                guard r >= MagnifierAnnotation.minRadius else { return }
-                annotations[state.index] = magnifier.withRadius(r)
-            } else if let spotlight = state.original as? SpotlightAnnotation {
-                let newRect = resizedRect(
-                    from: spotlight.rect,
-                    anchor: anchor,
-                    currentMouse: currentMouse,
-                    minimumSize: 4
-                )
-                guard newRect.width >= 4, newRect.height >= 4 else { return }
-                annotations[state.index] = spotlight.withRect(newRect)
-            } else if let mosaic = state.original as? MosaicAnnotation {
+            if let mosaic = state.original as? MosaicAnnotation {
                 // Move only the edge(s) this grip owns; the opposite edge(s)
                 // stay pinned. min/abs keep the rect valid if the user drags a
                 // grip past its opposite side.
@@ -3353,7 +2809,6 @@ class EditCanvasView: NSView {
                     lineWidth: rect.lineWidth,
                     fillMode: rect.fillMode,
                     strokeStyle: rect.strokeStyle,
-                    roughStyle: rect.roughStyle.tuned(for: newRect, lineWidth: rect.lineWidth),
                     rotation: rect.rotation
                 )
             } else if let ellipse = state.original as? EllipseAnnotation {
@@ -3372,31 +2827,8 @@ class EditCanvasView: NSView {
                     lineWidth: ellipse.lineWidth,
                     fillMode: ellipse.fillMode,
                     strokeStyle: ellipse.strokeStyle,
-                    roughStyle: ellipse.roughStyle.tuned(for: newRect, lineWidth: ellipse.lineWidth),
                     rotation: ellipse.rotation
                 )
-            } else if let image = state.original as? ImageAnnotation {
-                let newRect = resizedRotatedRect(
-                    from: image.rect,
-                    rotation: image.rotation,
-                    anchor: anchor,
-                    currentMouse: currentMouse,
-                    minimumSize: 12,
-                    constraint: shiftIsDown ? .preserveAspectRatio : .none
-                )
-                guard newRect.width >= 12, newRect.height >= 12 else { return }
-                annotations[state.index] = image.withRect(newRect)
-            } else if let emoji = state.original as? EmojiAnnotation {
-                let newRect = resizedRotatedRect(
-                    from: emoji.rect,
-                    rotation: emoji.rotation,
-                    anchor: anchor,
-                    currentMouse: currentMouse,
-                    minimumSize: 12,
-                    constraint: shiftIsDown ? .square : .none
-                )
-                guard newRect.width >= 12, newRect.height >= 12 else { return }
-                annotations[state.index] = emoji.withRect(newRect)
             }
         }
 
@@ -3563,106 +2995,6 @@ class EditCanvasView: NSView {
 
     // MARK: - Cursor
 
-    /// Cursor shown while the magnifier tool is active and the pointer is
-    /// over empty canvas — a loupe glyph with a dark halo so it reads on any
-    /// background. The hotspot is the lens center, where a drag drops the
-    /// lens. The drawing handler is resolution-independent, so the cursor
-    /// stays crisp on Retina displays.
-    private static let magnifierCursor: NSCursor = {
-        let size: CGFloat = 28
-        let lensCenter = NSPoint(x: 11, y: 17)
-        let lensRadius: CGFloat = 7
-
-        let image = NSImage(size: NSSize(width: size, height: size), flipped: false) { _ in
-            let lens = NSBezierPath(ovalIn: NSRect(
-                x: lensCenter.x - lensRadius,
-                y: lensCenter.y - lensRadius,
-                width: lensRadius * 2,
-                height: lensRadius * 2
-            ))
-
-            // Handle — from the lens's lower-right edge toward the corner.
-            let diag = CGFloat(2).squareRoot() / 2
-            let handleStart = NSPoint(
-                x: lensCenter.x + lensRadius * diag,
-                y: lensCenter.y - lensRadius * diag
-            )
-            let handle = NSBezierPath()
-            handle.lineCapStyle = .round
-            handle.move(to: handleStart)
-            handle.line(to: NSPoint(x: handleStart.x + 7.5, y: handleStart.y - 7.5))
-
-            // "+" inside the lens, echoing the toolbar icon.
-            let arm: CGFloat = 3.4
-            let plus = NSBezierPath()
-            plus.lineCapStyle = .round
-            plus.move(to: NSPoint(x: lensCenter.x - arm, y: lensCenter.y))
-            plus.line(to: NSPoint(x: lensCenter.x + arm, y: lensCenter.y))
-            plus.move(to: NSPoint(x: lensCenter.x, y: lensCenter.y - arm))
-            plus.line(to: NSPoint(x: lensCenter.x, y: lensCenter.y + arm))
-
-            // Dark halo pass — fatter strokes underneath for contrast.
-            NSColor.black.withAlphaComponent(0.55).setStroke()
-            lens.lineWidth = 5;   lens.stroke()
-            handle.lineWidth = 7; handle.stroke()
-            plus.lineWidth = 4;   plus.stroke()
-
-            // White body pass.
-            NSColor.white.setStroke()
-            lens.lineWidth = 2;     lens.stroke()
-            handle.lineWidth = 3.5; handle.stroke()
-            plus.lineWidth = 1.8;   plus.stroke()
-            return true
-        }
-        return NSCursor(
-            image: image,
-            hotSpot: NSPoint(x: lensCenter.x, y: size - lensCenter.y)
-        )
-    }()
-
-    private static let eraserCursor: NSCursor = {
-        let size: CGFloat = 28
-        let center = NSPoint(x: 14, y: 14)
-
-        let image = NSImage(size: NSSize(width: size, height: size), flipped: false) { _ in
-            let transform = NSAffineTransform()
-            transform.translateX(by: center.x, yBy: center.y)
-            transform.rotate(byDegrees: -35)
-            transform.translateX(by: -center.x, yBy: -center.y)
-
-            NSGraphicsContext.saveGraphicsState()
-            transform.concat()
-
-            let bodyRect = NSRect(x: 7, y: 9, width: 16, height: 10)
-            let body = NSBezierPath(roundedRect: bodyRect, xRadius: 3, yRadius: 3)
-
-            NSColor.black.withAlphaComponent(0.55).setStroke()
-            body.lineWidth = 5
-            body.stroke()
-
-            NSColor.white.setFill()
-            body.fill()
-
-            NSColor.systemRed.withAlphaComponent(0.95).setFill()
-            NSBezierPath(roundedRect: NSRect(x: 7, y: 9, width: 7, height: 10), xRadius: 3, yRadius: 3).fill()
-
-            let divider = NSBezierPath()
-            divider.move(to: NSPoint(x: 14, y: 10))
-            divider.line(to: NSPoint(x: 14, y: 18))
-            NSColor.black.withAlphaComponent(0.28).setStroke()
-            divider.lineWidth = 1
-            divider.stroke()
-
-            NSColor.white.withAlphaComponent(0.95).setStroke()
-            body.lineWidth = 1.5
-            body.stroke()
-
-            NSGraphicsContext.restoreGraphicsState()
-            return true
-        }
-        return NSCursor(image: image, hotSpot: NSPoint(x: center.x, y: size - center.y))
-    }()
-
     private static let plusCursor: NSCursor = {
         let size: CGFloat = 28
         let center = NSPoint(x: 14, y: 14)
@@ -3705,26 +3037,17 @@ class EditCanvasView: NSView {
     override func mouseMoved(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
         updateHoverHighlight(at: point)
-        updateEmojiPreview(at: point)
-        updateMarkerPreview(at: point)
         updateCursor(at: point)
     }
 
     override func mouseEntered(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
         updateHoverHighlight(at: point)
-        updateEmojiPreview(at: point)
-        updateMarkerPreview(at: point)
         updateCursor(at: point)
     }
 
     override func mouseExited(with event: NSEvent) {
         setHoveredAnnotationIndex(nil)
-        if emojiPreviewPoint != nil {
-            emojiPreviewPoint = nil
-            needsDisplay = true
-        }
-        updateMarkerPreview(at: nil)
         let point = convert(event.locationInWindow, from: nil)
         if hostSelectionView?.setResizeCursorIfNeeded(at: point, from: self) != true {
             // Let whatever's underneath manage its own cursor.
@@ -3732,120 +3055,15 @@ class EditCanvasView: NSView {
         }
     }
 
-    private func updateEmojiPreview(at point: NSPoint) {
-        guard activeTool == .emoji, currentEmoji != nil else {
-            if emojiPreviewPoint != nil {
-                emojiPreviewPoint = nil
-                needsDisplay = true
-            }
-            return
-        }
-        guard bounds.contains(point) else { return }
-        if emojiPreviewPoint != point {
-            emojiPreviewPoint = point
-            needsDisplay = true
-        }
-    }
-
-    // MARK: - Marker footprint indicator
-
-    /// Indicator line weight. Drawn on the canvas, not as an `NSCursor`, so it
-    /// is immune to the system "pointer size" setting
-    /// (`com.apple.universalaccess mouseDriverCursorSize`) that scales cursor
-    /// images and would otherwise break the footprint's 1:1 match.
-    private static let markerIndicatorStrokeWidth: CGFloat = 1
-    /// Maximum indicator width. A thinner brush caps the width at its own
-    /// height so the capsule never claims more reach than the brush has.
-    private static let markerIndicatorMaxWidth: CGFloat = 8
-
-    /// Outer footprint of the indicator for a given brush width: exactly the
-    /// band the next stroke would paint, vertically.
-    private func markerIndicatorRect(centeredAt point: NSPoint, lineWidth: CGFloat) -> NSRect {
-        let brushHeight = lineWidth * MarkerAnnotation.brushScale
-        let width = min(EditCanvasView.markerIndicatorMaxWidth, brushHeight)
-        return NSRect(
-            x: point.x - width / 2,
-            y: point.y - brushHeight / 2,
-            width: width,
-            height: brushHeight
-        )
-    }
-
-    /// Invalidate just the indicator's footprint plus room for the glow, so a
-    /// mouse move never repaints the whole canvas.
-    private func invalidateMarkerPreview(at point: NSPoint?, forLineWidth lineWidth: CGFloat) {
-        guard let point else { return }
-        let outset = EditCanvasView.markerIndicatorStrokeWidth + 1
-        setNeedsDisplay(markerIndicatorRect(centeredAt: point, lineWidth: lineWidth)
-            .insetBy(dx: -outset, dy: -outset))
-    }
-
-    /// Move (or clear, with `nil`) the indicator, repainting only the union of
-    /// the old and new footprints.
-    private func updateMarkerPreview(at point: NSPoint?) {
-        var next = point
-        if activeTool != .marker { next = nil }
-        if let p = next, !bounds.contains(p) { next = nil }
-        if dragState != nil || handleDragState != nil || activeTextField != nil {
-            next = nil
-        }
-        // An ongoing stroke can cross existing marks. Before drawing starts,
-        // those same marks and their controls take priority over the brush.
-        if let p = next, currentMarkerPoints == nil,
-           hitTestSelectionAction(at: p) != nil
-            || hitTestSelectionHandle(at: p) != nil
-            || hitTestAnnotation(at: p) != nil {
-            next = nil
-        }
-        guard next != markerPreviewPoint else { return }
-        let previous = markerPreviewPoint
-        markerPreviewPoint = next
-        invalidateMarkerPreview(at: previous, forLineWidth: currentMarkerLineWidth)
-        invalidateMarkerPreview(at: next, forLineWidth: currentMarkerLineWidth)
-    }
-
-    /// Screen-only hover affordance: a hollow capsule whose height equals the
-    /// brush height, so the user can line the brush up with a row of text.
-    /// Interior stays transparent; the content underneath must stay readable.
-    private func drawMarkerPreview() {
-        guard activeTool == .marker, let markerPreviewPoint else { return }
-        let stroke = EditCanvasView.markerIndicatorStrokeWidth
-        let outer = markerIndicatorRect(centeredAt: markerPreviewPoint, lineWidth: currentMarkerLineWidth)
-        // Strokes are centred on the path, so inset by half the stroke width:
-        // the outline's OUTER edge then coincides with the brush footprint.
-        let rect = outer.insetBy(dx: stroke / 2, dy: stroke / 2)
-        guard rect.width > 0, rect.height > 0 else { return }
-        let radius = min(rect.width / 2, rect.height / 2)
-        let capsule = NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius)
-
-        NSGraphicsContext.saveGraphicsState()
-        defer { NSGraphicsContext.restoreGraphicsState() }
-        // Faint white glow keeps the hairline legible over dark content
-        // without thickening the line itself. No fill: see-through interior.
-        NSColor.white.withAlphaComponent(0.55).setStroke()
-        capsule.lineWidth = stroke * 2
-        capsule.stroke()
-        NSColor(white: 0.30, alpha: 0.6).setStroke()
-        capsule.lineWidth = stroke
-        capsule.stroke()
-    }
-
     private func updateCursor(at point: NSPoint) {
         // The outer screenshot frame stays resizable while an annotation tool
         // owns canvas tracking events. Preserve its eight directional cursors
         // before considering annotation-specific hover affordances.
         if hostSelectionView?.setResizeCursorIfNeeded(at: point, from: self) == true {
-            if currentMarkerPoints == nil {
-                updateMarkerPreview(at: nil)
-            }
             return
         }
         // Don't fight the text field's I-beam while editing.
         if activeTextField != nil { return }
-        if activeTool == .eraser {
-            EditCanvasView.eraserCursor.set()
-            return
-        }
         // Action buttons on the selection chrome: pointing finger.
         if hitTestSelectionAction(at: point) != nil {
             NSCursor.pointingHand.set()
@@ -3877,16 +3095,6 @@ class EditCanvasView: NSView {
             NSCursor.openHand.set()
             return
         }
-        if activeTool == .emoji, currentEmoji != nil {
-            EditCanvasView.plusCursor.set()
-            return
-        }
-        // Magnifier tool over empty canvas: a loupe cursor signals that a
-        // drag here drops a lens.
-        if activeTool == .magnifier {
-            EditCanvasView.magnifierCursor.set()
-            return
-        }
         NSCursor.arrow.set()
     }
 
@@ -3895,13 +3103,11 @@ class EditCanvasView: NSView {
     /// commit, tool change) so the cursor doesn't lie until the next move.
     private func refreshCursorAtCurrentLocation() {
         guard let window else {
-            updateMarkerPreview(at: nil)
             return
         }
         let mouseInScreen = NSEvent.mouseLocation
         let mouseInWindow = window.convertPoint(fromScreen: mouseInScreen)
         let local = convert(mouseInWindow, from: nil)
-        updateMarkerPreview(at: local)
         guard bounds.contains(local) else {
             setHoveredAnnotationIndex(nil)
             return

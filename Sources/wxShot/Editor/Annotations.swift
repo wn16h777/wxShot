@@ -107,58 +107,6 @@ enum ShapeFillMode: String, CaseIterable {
 enum ShapeStrokeStyle: String, CaseIterable {
     case standard
     case rounded
-    case handDrawn
-}
-
-struct RoughShapeStyle: Equatable {
-    let seed: UInt64
-    let roughness: CGFloat
-    let passes: Int
-
-    init(seed: UInt64 = RoughShapeStyle.randomSeed(), roughness: CGFloat, passes: Int = 1) {
-        self.seed = seed == 0 ? Self.fallbackSeed : seed
-        self.roughness = min(max(roughness, 0), 4)
-        self.passes = max(1, min(passes, 3))
-    }
-
-    static func make(seed: UInt64 = RoughShapeStyle.randomSeed(), rect: NSRect, lineWidth: CGFloat) -> RoughShapeStyle {
-        RoughShapeStyle(seed: seed, roughness: defaultRoughness(for: rect, lineWidth: lineWidth), passes: 1)
-    }
-
-    func tuned(for rect: NSRect, lineWidth: CGFloat) -> RoughShapeStyle {
-        RoughShapeStyle(seed: seed, roughness: Self.defaultRoughness(for: rect, lineWidth: lineWidth), passes: passes)
-    }
-
-    static func randomSeed() -> UInt64 {
-        UInt64.random(in: 1...UInt64.max)
-    }
-
-    private static let fallbackSeed: UInt64 = 0x9E3779B97F4A7C15
-
-    private static func defaultRoughness(for rect: NSRect, lineWidth: CGFloat) -> CGFloat {
-        let sizeDriven = min(rect.width, rect.height) * 0.001
-        let widthDriven = lineWidth * 0.04
-        return max(0.15, min(0.55, max(sizeDriven, widthDriven)))
-    }
-}
-
-private struct SeededRandom {
-    private var state: UInt64
-
-    init(seed: UInt64) {
-        state = seed == 0 ? 0x123456789ABCDEF : seed
-    }
-
-    mutating func next() -> CGFloat {
-        state ^= state << 13
-        state ^= state >> 7
-        state ^= state << 17
-        return CGFloat(state % 10_000) / 10_000
-    }
-
-    mutating func range(_ min: CGFloat, _ max: CGFloat) -> CGFloat {
-        min + (max - min) * next()
-    }
 }
 
 private func strokedPathContains(_ path: CGPath, point: NSPoint, lineWidth: CGFloat) -> Bool {
@@ -181,7 +129,7 @@ private func distanceFrom(_ point: NSPoint, toSegmentFrom start: NSPoint, to end
 }
 
 private enum ShapeDrawing {
-    static func fillRect(_ rect: NSRect, color: NSColor, lineWidth: CGFloat, fillMode: ShapeFillMode, strokeStyle: ShapeStrokeStyle, roughStyle: RoughShapeStyle, in context: CGContext) {
+    static func fillRect(_ rect: NSRect, color: NSColor, lineWidth: CGFloat, fillMode: ShapeFillMode, strokeStyle: ShapeStrokeStyle, in context: CGContext) {
         guard fillMode.isFilled else { return }
         context.saveGState()
         context.setFillColor(color.withAlphaComponent(fillMode.alpha).cgColor)
@@ -191,28 +139,22 @@ private enum ShapeDrawing {
         case .rounded:
             context.addPath(roundedRectPath(rect, lineWidth: lineWidth))
             context.fillPath()
-        case .handDrawn:
-            context.addPath(roughRoundedRectPath(rect, lineWidth: lineWidth, style: roughStyle, pass: 0))
-            context.fillPath()
         }
         context.restoreGState()
     }
 
-    static func fillEllipse(_ rect: NSRect, color: NSColor, lineWidth: CGFloat, fillMode: ShapeFillMode, strokeStyle: ShapeStrokeStyle, roughStyle: RoughShapeStyle, in context: CGContext) {
+    static func fillEllipse(_ rect: NSRect, color: NSColor, lineWidth: CGFloat, fillMode: ShapeFillMode, strokeStyle: ShapeStrokeStyle, in context: CGContext) {
         guard fillMode.isFilled else { return }
         context.saveGState()
         context.setFillColor(color.withAlphaComponent(fillMode.alpha).cgColor)
         switch strokeStyle {
         case .standard, .rounded:
             context.fillEllipse(in: rect)
-        case .handDrawn:
-            context.addPath(roughEllipsePath(rect, style: roughStyle, pass: 0))
-            context.fillPath()
         }
         context.restoreGState()
     }
 
-    static func strokeRect(_ rect: NSRect, color: NSColor, lineWidth: CGFloat, strokeStyle: ShapeStrokeStyle, roughStyle: RoughShapeStyle, in context: CGContext) {
+    static func strokeRect(_ rect: NSRect, color: NSColor, lineWidth: CGFloat, strokeStyle: ShapeStrokeStyle, in context: CGContext) {
         switch strokeStyle {
         case .standard:
             context.saveGState()
@@ -228,19 +170,10 @@ private enum ShapeDrawing {
             context.addPath(roundedRectPath(rect, lineWidth: lineWidth))
             context.strokePath()
             context.restoreGState()
-        case .handDrawn:
-            let drawingRect = rect.insetBy(dx: strokeInset(for: rect, lineWidth: lineWidth), dy: strokeInset(for: rect, lineWidth: lineWidth))
-            drawRoughStroke(
-                color: color,
-                style: roughStyle,
-                in: context
-            ) { pass in
-                roughRoundedRectStrokeSamples(drawingRect, lineWidth: lineWidth, style: roughStyle, pass: pass)
-            }
         }
     }
 
-    static func strokeEllipse(_ rect: NSRect, color: NSColor, lineWidth: CGFloat, strokeStyle: ShapeStrokeStyle, roughStyle: RoughShapeStyle, in context: CGContext) {
+    static func strokeEllipse(_ rect: NSRect, color: NSColor, lineWidth: CGFloat, strokeStyle: ShapeStrokeStyle, in context: CGContext) {
         switch strokeStyle {
         case .standard, .rounded:
             context.saveGState()
@@ -248,15 +181,6 @@ private enum ShapeDrawing {
             context.setLineWidth(lineWidth)
             context.strokeEllipse(in: rect)
             context.restoreGState()
-        case .handDrawn:
-            let drawingRect = rect.insetBy(dx: strokeInset(for: rect, lineWidth: lineWidth), dy: strokeInset(for: rect, lineWidth: lineWidth))
-            drawRoughStroke(
-                color: color,
-                style: roughStyle,
-                in: context
-            ) { pass in
-                roughEllipseStrokeSamples(drawingRect, lineWidth: lineWidth, style: roughStyle, pass: pass)
-            }
         }
     }
 
@@ -274,358 +198,11 @@ private enum ShapeDrawing {
         switch strokeStyle {
         case .standard:
             return CGPath(rect: rect, transform: nil)
-        case .rounded, .handDrawn:
+        case .rounded:
             return roundedRectPath(rect, lineWidth: lineWidth)
         }
     }
 
-    private struct VariableStrokeSample {
-        let point: CGPoint
-        let width: CGFloat
-    }
-
-    private static func drawRoughStroke(color: NSColor, style: RoughShapeStyle, in context: CGContext, samplesForPass: (Int) -> [VariableStrokeSample]) {
-        context.saveGState()
-        context.setAllowsAntialiasing(true)
-        context.setShouldAntialias(true)
-
-        for pass in 0..<style.passes {
-            let alpha: CGFloat
-            let widthScale: CGFloat
-            switch pass {
-            case 0:
-                alpha = 1
-                widthScale = 1
-            case 1:
-                alpha = 0.62
-                widthScale = 0.86
-            default:
-                alpha = 0.38
-                widthScale = 0.68
-            }
-            drawVariableWidthStroke(
-                samples: samplesForPass(pass).map {
-                    VariableStrokeSample(point: $0.point, width: max(1, $0.width * widthScale))
-                },
-                color: colorByMultiplyingAlpha(color, by: alpha),
-                in: context
-            )
-        }
-
-        context.restoreGState()
-    }
-
-    private static func colorByMultiplyingAlpha(_ color: NSColor, by alpha: CGFloat) -> NSColor {
-        let rgb = color.usingColorSpace(.deviceRGB) ?? color
-        return rgb.withAlphaComponent(min(max(rgb.alphaComponent * alpha, 0), 1))
-    }
-
-    private static func strokeInset(for rect: NSRect, lineWidth: CGFloat) -> CGFloat {
-        let maxInset = max(0, min(rect.width, rect.height) / 2 - 0.5)
-        return min(maxInset, max(0, lineWidth / 2))
-    }
-
-    private static func roughRoundedRectPath(_ rect: NSRect, lineWidth: CGFloat, style: RoughShapeStyle, pass: Int) -> CGPath {
-        guard rect.width > 0, rect.height > 0 else { return CGMutablePath() }
-        var rng = SeededRandom(seed: passSeed(style.seed, pass: pass))
-        let radius = roundedRectRadius(for: rect, lineWidth: lineWidth)
-        let points = roundedRectPoints(
-            rect: rect,
-            radius: radius,
-            step: roughSampleStep,
-            bowAmount: 0,
-            rng: &rng
-        )
-        return smoothClosedPath(points: points)
-    }
-
-    private static func roughEllipsePath(_ rect: NSRect, style _: RoughShapeStyle, pass _: Int) -> CGPath {
-        guard rect.width > 0, rect.height > 0 else { return CGMutablePath() }
-        return smoothClosedPath(points: ellipsePoints(rect: rect, step: roughSampleStep))
-    }
-
-    private static func roughRoundedRectStrokeSamples(_ rect: NSRect, lineWidth: CGFloat, style: RoughShapeStyle, pass: Int) -> [VariableStrokeSample] {
-        guard rect.width > 0, rect.height > 0 else { return [] }
-        var rng = SeededRandom(seed: passSeed(style.seed, pass: pass))
-        let radius = roundedRectRadius(for: rect, lineWidth: lineWidth)
-        let points = roundedRectPoints(
-            rect: rect,
-            radius: radius,
-            step: roughSampleStep,
-            bowAmount: 0,
-            rng: &rng
-        )
-        return pressureSamples(points: points, lineWidth: lineWidth, style: style, rng: &rng)
-    }
-
-    private static func roughEllipseStrokeSamples(_ rect: NSRect, lineWidth: CGFloat, style: RoughShapeStyle, pass: Int) -> [VariableStrokeSample] {
-        guard rect.width > 0, rect.height > 0 else { return [] }
-        var rng = SeededRandom(seed: passSeed(style.seed, pass: pass))
-        return pressureSamples(points: ellipsePoints(rect: rect, step: roughSampleStep), lineWidth: lineWidth, style: style, rng: &rng)
-    }
-
-    private static func pressureSamples(points: [CGPoint], lineWidth: CGFloat, style: RoughShapeStyle, rng: inout SeededRandom) -> [VariableStrokeSample] {
-        guard !points.isEmpty else { return [] }
-        let phaseA = rng.range(0, .pi * 2)
-        let phaseB = rng.range(0, .pi * 2)
-        let phaseC = rng.range(0, .pi * 2)
-        let variation = max(0.12, min(0.24, 0.14 + style.roughness * 0.08))
-        let count = CGFloat(points.count)
-
-        return points.enumerated().map { index, point in
-            let progress = CGFloat(index) / count
-            let t = progress * .pi * 2
-            let pressure = 1
-                + variation * sin(t + phaseA)
-                + variation * 0.45 * sin(t * 2.3 + phaseB)
-                + variation * 0.24 * cos(t * 4.1 + phaseC)
-            return VariableStrokeSample(
-                point: point,
-                width: max(1, lineWidth * min(max(pressure, 0.72), 1.28))
-            )
-        }
-    }
-
-    private static func drawVariableWidthStroke(samples: [VariableStrokeSample], color: NSColor, in context: CGContext) {
-        guard samples.count >= 3 else { return }
-
-        var left: [CGPoint] = []
-        var right: [CGPoint] = []
-        left.reserveCapacity(samples.count)
-        right.reserveCapacity(samples.count)
-
-        for index in samples.indices {
-            let normal = strokeNormal(at: index, in: samples)
-            let halfWidth = samples[index].width / 2
-            let point = samples[index].point
-            left.append(CGPoint(
-                x: point.x + normal.dx * halfWidth,
-                y: point.y + normal.dy * halfWidth
-            ))
-            right.append(CGPoint(
-                x: point.x - normal.dx * halfWidth,
-                y: point.y - normal.dy * halfWidth
-            ))
-        }
-
-        let path = CGMutablePath()
-        addSmoothedClosedLoop(left, to: path)
-        addSmoothedClosedLoop(right.reversed(), to: path)
-
-        context.saveGState()
-        context.setFillColor(color.cgColor)
-        context.addPath(path)
-        context.fillPath(using: .evenOdd)
-        context.restoreGState()
-    }
-
-    private static func strokeNormal(at index: Int, in samples: [VariableStrokeSample]) -> CGVector {
-        let previousIndex = index == samples.startIndex
-            ? samples.index(before: samples.endIndex)
-            : samples.index(before: index)
-        let nextIndex = index == samples.index(before: samples.endIndex)
-            ? samples.startIndex
-            : samples.index(after: index)
-        let previous = samples[previousIndex].point
-        let next = samples[nextIndex].point
-        let dx = next.x - previous.x
-        let dy = next.y - previous.y
-        let length = max(0.001, hypot(dx, dy))
-        return CGVector(dx: -dy / length, dy: dx / length)
-    }
-
-    private static func addSmoothedClosedLoop<S: Sequence>(_ points: S, to path: CGMutablePath) where S.Element == CGPoint {
-        let points = Array(points)
-        guard points.count > 2 else { return }
-
-        func mid(_ a: CGPoint, _ b: CGPoint) -> CGPoint {
-            CGPoint(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2)
-        }
-
-        let count = points.count
-        path.move(to: mid(points[0], points[1]))
-        for index in 1...count {
-            let current = points[index % count]
-            let next = points[(index + 1) % count]
-            path.addQuadCurve(to: mid(current, next), control: current)
-        }
-        path.closeSubpath()
-    }
-
-    private static func passSeed(_ seed: UInt64, pass: Int) -> UInt64 {
-        seed &+ (UInt64(pass + 1) &* 0x9E3779B97F4A7C15)
-    }
-
-    private static let roughSampleStep: CGFloat = 10
-    private static let roughArcStep: CGFloat = .pi / 12
-
-    private static func roundedRectPoints(rect: NSRect, radius: CGFloat, step: CGFloat, bowAmount: CGFloat, rng: inout SeededRandom) -> [CGPoint] {
-        let r = min(radius, rect.width / 2, rect.height / 2)
-        var points: [CGPoint] = []
-
-        sampleRoughLine(
-            from: CGPoint(x: rect.minX + r, y: rect.minY),
-            to: CGPoint(x: rect.maxX - r, y: rect.minY),
-            step: step,
-            bowAmount: bowAmount,
-            rng: &rng,
-            points: &points
-        )
-        sampleArc(
-            center: CGPoint(x: rect.maxX - r, y: rect.minY + r),
-            radius: r,
-            startAngle: -.pi / 2,
-            endAngle: 0,
-            stepAngle: roughArcStep,
-            points: &points
-        )
-        sampleRoughLine(
-            from: CGPoint(x: rect.maxX, y: rect.minY + r),
-            to: CGPoint(x: rect.maxX, y: rect.maxY - r),
-            step: step,
-            bowAmount: bowAmount,
-            rng: &rng,
-            points: &points
-        )
-        sampleArc(
-            center: CGPoint(x: rect.maxX - r, y: rect.maxY - r),
-            radius: r,
-            startAngle: 0,
-            endAngle: .pi / 2,
-            stepAngle: roughArcStep,
-            points: &points
-        )
-        sampleRoughLine(
-            from: CGPoint(x: rect.maxX - r, y: rect.maxY),
-            to: CGPoint(x: rect.minX + r, y: rect.maxY),
-            step: step,
-            bowAmount: bowAmount,
-            rng: &rng,
-            points: &points
-        )
-        sampleArc(
-            center: CGPoint(x: rect.minX + r, y: rect.maxY - r),
-            radius: r,
-            startAngle: .pi / 2,
-            endAngle: .pi,
-            stepAngle: roughArcStep,
-            points: &points
-        )
-        sampleRoughLine(
-            from: CGPoint(x: rect.minX, y: rect.maxY - r),
-            to: CGPoint(x: rect.minX, y: rect.minY + r),
-            step: step,
-            bowAmount: bowAmount,
-            rng: &rng,
-            points: &points
-        )
-        sampleArc(
-            center: CGPoint(x: rect.minX + r, y: rect.minY + r),
-            radius: r,
-            startAngle: .pi,
-            endAngle: .pi * 1.5,
-            stepAngle: roughArcStep,
-            points: &points
-        )
-
-        return points
-    }
-
-    private static func ellipsePoints(rect: NSRect, step: CGFloat) -> [CGPoint] {
-        let center = CGPoint(x: rect.midX, y: rect.midY)
-        let rx = rect.width / 2
-        let ry = rect.height / 2
-        let circumference = .pi * (3 * (rx + ry) - sqrt((3 * rx + ry) * (rx + 3 * ry)))
-        let count = max(24, Int(ceil(circumference / step)))
-        return (0..<count).map { index in
-            let angle = .pi * 2 * CGFloat(index) / CGFloat(count)
-            return CGPoint(
-                x: center.x + rx * cos(angle),
-                y: center.y + ry * sin(angle)
-            )
-        }
-    }
-
-    private static func sampleRoughLine(
-        from start: CGPoint,
-        to end: CGPoint,
-        step: CGFloat,
-        bowAmount: CGFloat,
-        rng: inout SeededRandom,
-        points: inout [CGPoint]
-    ) {
-        let dx = end.x - start.x
-        let dy = end.y - start.y
-        let distance = hypot(dx, dy)
-        guard distance > 0 else {
-            appendPoint(start, to: &points)
-            return
-        }
-
-        let count = max(1, Int(ceil(distance / step)))
-        let nx = -dy / distance
-        let ny = dx / distance
-        let bowDirection = rng.range(-1, 1)
-        for index in 0...count {
-            if !points.isEmpty && index == 0 { continue }
-            let t = CGFloat(index) / CGFloat(count)
-            let bow = sin(t * .pi) * bowAmount * bowDirection
-            points.append(CGPoint(
-                x: start.x + dx * t + nx * bow,
-                y: start.y + dy * t + ny * bow
-            ))
-        }
-    }
-
-    private static func sampleArc(
-        center: CGPoint,
-        radius: CGFloat,
-        startAngle: CGFloat,
-        endAngle: CGFloat,
-        stepAngle: CGFloat,
-        points: inout [CGPoint]
-    ) {
-        guard radius > 0 else {
-            appendPoint(center, to: &points)
-            return
-        }
-
-        let total = abs(endAngle - startAngle)
-        let count = max(3, Int(ceil(total / stepAngle)))
-        for index in 0...count {
-            if !points.isEmpty && index == 0 { continue }
-            let t = CGFloat(index) / CGFloat(count)
-            let angle = startAngle + (endAngle - startAngle) * t
-            points.append(CGPoint(
-                x: center.x + cos(angle) * radius,
-                y: center.y + sin(angle) * radius
-            ))
-        }
-    }
-
-    private static func appendPoint(_ point: CGPoint, to points: inout [CGPoint]) {
-        guard points.last != point else { return }
-        points.append(point)
-    }
-
-    private static func smoothClosedPath(points: [CGPoint]) -> CGPath {
-        let path = CGMutablePath()
-        guard points.count > 2 else { return path }
-
-        func mid(_ a: CGPoint, _ b: CGPoint) -> CGPoint {
-            CGPoint(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2)
-        }
-
-        let count = points.count
-        path.move(to: mid(points[0], points[1]))
-        for index in 1...count {
-            let current = points[index % count]
-            let next = points[(index + 1) % count]
-            path.addQuadCurve(to: mid(current, next), control: current)
-        }
-        path.closeSubpath()
-        return path
-    }
 }
 
 enum ArrowStyle: String, CaseIterable {
@@ -784,77 +361,6 @@ struct PenAnnotation: Annotation {
     }
 }
 
-// MARK: - Marker (Highlighter) Annotation
-
-/// Highlighter — a pen stroke painted with a semi-transparent fat brush so it
-/// reads as if drawn over text with a real marker. Unlike the pen, the brush
-/// width scales as `lineWidth × 6` and self-overlapping segments are drawn
-/// inside a transparency layer so the alpha doesn't compound at junctions.
-struct MarkerAnnotation: Annotation {
-    let path: NSBezierPath
-    /// User-picked color; alpha is applied at draw time.
-    let color: NSColor
-    /// Base width — multiplied by `MarkerAnnotation.brushScale` when drawn.
-    let lineWidth: CGFloat
-    var rotation: CGFloat = 0
-
-    static let brushScale: CGFloat = 6
-    static let markerAlpha: CGFloat = 0.35
-
-    var boundingRect: NSRect {
-        let inset = -lineWidth * MarkerAnnotation.brushScale / 2
-        return path.bounds.insetBy(dx: inset, dy: inset)
-    }
-    var supportsRotation: Bool { true }
-
-    func draw(in context: CGContext, bounds: NSRect) {
-        NSGraphicsContext.saveGraphicsState()
-        defer { NSGraphicsContext.restoreGraphicsState() }
-
-        let stroke = color.withAlphaComponent(1.0)
-        stroke.setStroke()
-        path.lineWidth = lineWidth * MarkerAnnotation.brushScale
-        path.lineCapStyle = .round
-        path.lineJoinStyle = .round
-
-        // Paint into a transparency layer at full alpha then flatten the
-        // entire layer at marker alpha so overlapping passes don't darken.
-        context.setAlpha(MarkerAnnotation.markerAlpha)
-        context.beginTransparencyLayer(auxiliaryInfo: nil)
-        path.stroke()
-        context.endTransparencyLayer()
-        context.setAlpha(1.0)
-    }
-
-    func containsPoint(_ point: NSPoint) -> Bool {
-        let p = unrotate(point)
-        let effectiveWidth = lineWidth * MarkerAnnotation.brushScale
-        return strokedPathContains(path.cgPath, point: p, lineWidth: effectiveWidth)
-    }
-
-    func translated(by delta: NSPoint) -> Annotation {
-        let copy = path.copy() as! NSBezierPath
-        var transform = AffineTransform.identity
-        transform.translate(x: delta.x, y: delta.y)
-        copy.transform(using: transform)
-        return MarkerAnnotation(path: copy, color: color, lineWidth: lineWidth, rotation: rotation)
-    }
-
-    func withRotation(_ rotation: CGFloat) -> Annotation {
-        var copy = self
-        copy.rotation = rotation
-        return copy
-    }
-
-    func withColor(_ color: NSColor) -> Annotation {
-        MarkerAnnotation(path: path, color: color, lineWidth: lineWidth, rotation: rotation)
-    }
-
-    func withLineWidth(_ lineWidth: CGFloat) -> Annotation {
-        MarkerAnnotation(path: path, color: color, lineWidth: lineWidth, rotation: rotation)
-    }
-}
-
 // MARK: - Mosaic Annotation
 
 struct MosaicAnnotation: Annotation {
@@ -894,316 +400,6 @@ struct MosaicAnnotation: Annotation {
     }
 }
 
-// MARK: - Spotlight Annotation
-
-/// A transparent rectangular window surrounded by a dimming layer. Spotlight
-/// annotations are composited together by `EditCanvasView`, so several
-/// windows share one overlay instead of repeatedly darkening each other.
-struct SpotlightAnnotation: Annotation {
-    let rect: NSRect
-
-    static let dimmingAlpha: CGFloat = 0.52
-    static let cornerRadius: CGFloat = 6
-
-    var boundingRect: NSRect { rect }
-
-    func draw(in context: CGContext, bounds: NSRect) {
-        Self.drawDimmingOverlay(highlightRects: [rect], in: context, bounds: bounds)
-    }
-
-    static func drawDimmingOverlay(
-        highlightRects: [NSRect],
-        in context: CGContext,
-        bounds: NSRect
-    ) {
-        guard !highlightRects.isEmpty else { return }
-        let visibleRects = highlightRects
-            .map { $0.intersection(bounds) }
-            .filter { !$0.isNull && $0.width > 0 && $0.height > 0 }
-
-        context.saveGState()
-        context.beginTransparencyLayer(auxiliaryInfo: nil)
-        context.setFillColor(NSColor.black.withAlphaComponent(dimmingAlpha).cgColor)
-        context.fill(bounds)
-        context.setBlendMode(.clear)
-        for rect in visibleRects {
-            let radius = min(cornerRadius, rect.width / 2, rect.height / 2)
-            context.addPath(CGPath(
-                roundedRect: rect,
-                cornerWidth: radius,
-                cornerHeight: radius,
-                transform: nil
-            ))
-            context.fillPath()
-        }
-        context.endTransparencyLayer()
-        context.restoreGState()
-    }
-
-    func containsPoint(_ point: NSPoint) -> Bool {
-        rect.contains(point)
-    }
-
-    func translated(by delta: NSPoint) -> Annotation {
-        SpotlightAnnotation(rect: rect.offsetBy(dx: delta.x, dy: delta.y))
-    }
-
-    func withRect(_ rect: NSRect) -> SpotlightAnnotation {
-        SpotlightAnnotation(rect: rect)
-    }
-}
-
-// MARK: - Magnifier Annotation
-
-/// A circular magnifying-glass lens placed over the screenshot. The lens
-/// samples the base image beneath `sourceCenter` (or beneath itself by
-/// default) and redraws that region enlarged `zoom`× inside a plain line
-/// frame. It holds a reference to the source image and re-samples it on every
-/// draw, so moving or resizing the lens always shows fresh underlying pixels.
-struct MagnifierAnnotation: Annotation {
-    let center: NSPoint
-    let radius: CGFloat
-    let color: NSColor
-    let lineWidth: CGFloat
-    /// Magnification factor — the lens shows a `2·radius / zoom` wide region
-    /// blown up to fill the `2·radius` circle.
-    let zoom: CGFloat
-    /// Base screenshot this lens magnifies. Sampled fresh on every draw.
-    let sourceImage: NSImage
-    /// Optional canvas point magnified by the lens. nil keeps the classic
-    /// loupe behavior where the lens samples directly beneath its center.
-    let sourceCenter: NSPoint?
-
-    static let defaultZoom: CGFloat = 2.0
-    static let minZoom: CGFloat = 1.0
-    static let maxZoom: CGFloat = 6.0
-    static let zoomStep: CGFloat = 0.5
-    /// Smallest radius the lens may be created or resized to.
-    static let minRadius: CGFloat = 16
-    /// Dragging the source handle this close to the lens center resets the
-    /// lens to the default "magnify what is under me" behavior.
-    static let sourceResetDistance: CGFloat = 8
-
-    var effectiveSourceCenter: NSPoint {
-        sourceCenter ?? center
-    }
-
-    var boundingRect: NSRect {
-        NSRect(
-            x: center.x - radius,
-            y: center.y - radius,
-            width: radius * 2,
-            height: radius * 2
-        )
-    }
-
-    init(
-        center: NSPoint,
-        radius: CGFloat,
-        color: NSColor,
-        lineWidth: CGFloat,
-        zoom: CGFloat,
-        sourceImage: NSImage,
-        sourceCenter: NSPoint? = nil
-    ) {
-        self.center = center
-        self.radius = radius
-        self.color = color
-        self.lineWidth = lineWidth
-        self.zoom = zoom
-        self.sourceImage = sourceImage
-        self.sourceCenter = sourceCenter
-    }
-
-    private static func sourceIndicatorRadius(for lensRadius: CGFloat) -> CGFloat {
-        max(12, min(24, lensRadius * 0.14))
-    }
-
-    private var detachedSourceGeometry: (source: NSPoint, start: NSPoint, end: NSPoint, indicatorRadius: CGFloat)? {
-        guard let source = sourceCenter else { return nil }
-        let dx = source.x - center.x
-        let dy = source.y - center.y
-        let distance = hypot(dx, dy)
-        let indicatorRadius = Self.sourceIndicatorRadius(for: radius)
-        guard distance > radius + indicatorRadius + 2 else { return nil }
-
-        let ux = dx / distance
-        let uy = dy / distance
-        return (
-            source: source,
-            start: NSPoint(x: center.x + ux * radius, y: center.y + uy * radius),
-            end: NSPoint(x: source.x - ux * indicatorRadius, y: source.y - uy * indicatorRadius),
-            indicatorRadius: indicatorRadius
-        )
-    }
-
-    func draw(in context: CGContext, bounds: NSRect) {
-        guard radius > 6, let nsContext = NSGraphicsContext.current else { return }
-
-        let squareRect = boundingRect
-        let circle = NSBezierPath(ovalIn: squareRect)
-
-        if let geometry = detachedSourceGeometry {
-            drawSourceConnector(geometry, in: context)
-        }
-
-        // 1. Magnified content, clipped to the circle. The source region is
-        // `2·radius / zoom` wide in canvas coords, centered on the lens; map
-        // it into the source image's coordinate space and blow it up to fill.
-        NSGraphicsContext.saveGraphicsState()
-        circle.addClip()
-        let imgSize = sourceImage.size
-        let scaleX = bounds.width > 0 ? imgSize.width / bounds.width : 1
-        let scaleY = bounds.height > 0 ? imgSize.height / bounds.height : 1
-        let srcSize = (radius * 2) / max(zoom, 1)
-        let sampleCenter = effectiveSourceCenter
-        let fromRect = NSRect(
-            x: (sampleCenter.x - srcSize / 2) * scaleX,
-            y: (sampleCenter.y - srcSize / 2) * scaleY,
-            width: srcSize * scaleX,
-            height: srcSize * scaleY
-        )
-        nsContext.imageInterpolation = .high
-        sourceImage.draw(in: squareRect, from: fromRect, operation: .sourceOver, fraction: 1.0)
-        NSGraphicsContext.restoreGraphicsState()
-
-        // 2. Plain annotation stroke, matching rectangle / ellipse tools.
-        context.setStrokeColor(color.cgColor)
-        context.setLineWidth(lineWidth)
-        context.strokeEllipse(in: squareRect)
-
-        if let geometry = detachedSourceGeometry {
-            drawSourceIndicator(geometry, in: context)
-        }
-    }
-
-    private func drawSourceConnector(
-        _ geometry: (source: NSPoint, start: NSPoint, end: NSPoint, indicatorRadius: CGFloat),
-        in context: CGContext
-    ) {
-        context.saveGState()
-        context.setStrokeColor(color.cgColor)
-        context.setLineWidth(lineWidth)
-        context.setLineCap(.butt)
-        context.move(to: geometry.start)
-        context.addLine(to: geometry.end)
-        context.strokePath()
-        context.restoreGState()
-    }
-
-    private func drawSourceIndicator(
-        _ geometry: (source: NSPoint, start: NSPoint, end: NSPoint, indicatorRadius: CGFloat),
-        in context: CGContext
-    ) {
-        let rect = NSRect(
-            x: geometry.source.x - geometry.indicatorRadius,
-            y: geometry.source.y - geometry.indicatorRadius,
-            width: geometry.indicatorRadius * 2,
-            height: geometry.indicatorRadius * 2
-        )
-        context.saveGState()
-        context.setStrokeColor(color.cgColor)
-        context.setLineWidth(lineWidth)
-        context.strokeEllipse(in: rect)
-        context.restoreGState()
-    }
-
-    func containsPoint(_ point: NSPoint) -> Bool {
-        if hypot(point.x - center.x, point.y - center.y) <= radius {
-            return true
-        }
-        guard let geometry = detachedSourceGeometry else { return false }
-        if hypot(point.x - geometry.source.x, point.y - geometry.source.y) <= geometry.indicatorRadius + 5 {
-            return true
-        }
-        return distanceFrom(point, toSegmentFrom: geometry.start, to: geometry.end) <= 6
-    }
-
-    func translated(by delta: NSPoint) -> Annotation {
-        MagnifierAnnotation(
-            center: NSPoint(x: center.x + delta.x, y: center.y + delta.y),
-            radius: radius,
-            color: color,
-            lineWidth: lineWidth,
-            zoom: zoom,
-            sourceImage: sourceImage,
-            sourceCenter: sourceCenter
-        )
-    }
-
-    func translatedPreservingSourceFocus(by delta: NSPoint) -> MagnifierAnnotation {
-        MagnifierAnnotation(
-            center: NSPoint(x: center.x + delta.x, y: center.y + delta.y),
-            radius: radius,
-            color: color,
-            lineWidth: lineWidth,
-            zoom: zoom,
-            sourceImage: sourceImage,
-            sourceCenter: effectiveSourceCenter
-        )
-    }
-
-    func withRadius(_ radius: CGFloat) -> MagnifierAnnotation {
-        MagnifierAnnotation(
-            center: center,
-            radius: radius,
-            color: color,
-            lineWidth: lineWidth,
-            zoom: zoom,
-            sourceImage: sourceImage,
-            sourceCenter: sourceCenter
-        )
-    }
-
-    func withSourceCenter(_ sourceCenter: NSPoint?) -> MagnifierAnnotation {
-        MagnifierAnnotation(
-            center: center,
-            radius: radius,
-            color: color,
-            lineWidth: lineWidth,
-            zoom: zoom,
-            sourceImage: sourceImage,
-            sourceCenter: sourceCenter
-        )
-    }
-
-    func withZoom(_ zoom: CGFloat) -> MagnifierAnnotation {
-        MagnifierAnnotation(
-            center: center,
-            radius: radius,
-            color: color,
-            lineWidth: lineWidth,
-            zoom: min(max(zoom, Self.minZoom), Self.maxZoom),
-            sourceImage: sourceImage,
-            sourceCenter: sourceCenter
-        )
-    }
-
-    func withColor(_ color: NSColor) -> Annotation {
-        MagnifierAnnotation(
-            center: center,
-            radius: radius,
-            color: color,
-            lineWidth: lineWidth,
-            zoom: zoom,
-            sourceImage: sourceImage,
-            sourceCenter: sourceCenter
-        )
-    }
-
-    func withLineWidth(_ lineWidth: CGFloat) -> Annotation {
-        MagnifierAnnotation(
-            center: center,
-            radius: radius,
-            color: color,
-            lineWidth: lineWidth,
-            zoom: zoom,
-            sourceImage: sourceImage,
-            sourceCenter: sourceCenter
-        )
-    }
-}
-
 // MARK: - Rectangle Annotation
 
 struct RectAnnotation: Annotation {
@@ -1212,7 +408,6 @@ struct RectAnnotation: Annotation {
     let lineWidth: CGFloat
     let fillMode: ShapeFillMode
     let strokeStyle: ShapeStrokeStyle
-    let roughStyle: RoughShapeStyle
     var rotation: CGFloat = 0
 
     init(
@@ -1222,7 +417,6 @@ struct RectAnnotation: Annotation {
         filled: Bool = false,
         fillMode: ShapeFillMode? = nil,
         strokeStyle: ShapeStrokeStyle = .standard,
-        roughStyle: RoughShapeStyle? = nil,
         rotation: CGFloat = 0
     ) {
         self.rect = rect
@@ -1230,7 +424,6 @@ struct RectAnnotation: Annotation {
         self.lineWidth = lineWidth
         self.fillMode = fillMode ?? (filled ? .opaque : .none)
         self.strokeStyle = strokeStyle
-        self.roughStyle = roughStyle ?? RoughShapeStyle.make(rect: rect, lineWidth: lineWidth)
         self.rotation = rotation
     }
 
@@ -1239,8 +432,8 @@ struct RectAnnotation: Annotation {
     var filled: Bool { fillMode.isFilled }
 
     func draw(in context: CGContext, bounds: NSRect) {
-        ShapeDrawing.fillRect(rect, color: color, lineWidth: lineWidth, fillMode: fillMode, strokeStyle: strokeStyle, roughStyle: roughStyle, in: context)
-        ShapeDrawing.strokeRect(rect, color: color, lineWidth: lineWidth, strokeStyle: strokeStyle, roughStyle: roughStyle, in: context)
+        ShapeDrawing.fillRect(rect, color: color, lineWidth: lineWidth, fillMode: fillMode, strokeStyle: strokeStyle, in: context)
+        ShapeDrawing.strokeRect(rect, color: color, lineWidth: lineWidth, strokeStyle: strokeStyle, in: context)
     }
 
     func containsPoint(_ point: NSPoint) -> Bool {
@@ -1259,7 +452,6 @@ struct RectAnnotation: Annotation {
             lineWidth: lineWidth,
             fillMode: fillMode,
             strokeStyle: strokeStyle,
-            roughStyle: roughStyle,
             rotation: rotation
         )
     }
@@ -1271,23 +463,23 @@ struct RectAnnotation: Annotation {
     }
 
     func withColor(_ color: NSColor) -> Annotation {
-        RectAnnotation(rect: rect, color: color, lineWidth: lineWidth, fillMode: fillMode, strokeStyle: strokeStyle, roughStyle: roughStyle, rotation: rotation)
+        RectAnnotation(rect: rect, color: color, lineWidth: lineWidth, fillMode: fillMode, strokeStyle: strokeStyle, rotation: rotation)
     }
 
     func withLineWidth(_ lineWidth: CGFloat) -> Annotation {
-        RectAnnotation(rect: rect, color: color, lineWidth: lineWidth, fillMode: fillMode, strokeStyle: strokeStyle, roughStyle: roughStyle.tuned(for: rect, lineWidth: lineWidth), rotation: rotation)
+        RectAnnotation(rect: rect, color: color, lineWidth: lineWidth, fillMode: fillMode, strokeStyle: strokeStyle, rotation: rotation)
     }
 
     func withFill(_ filled: Bool) -> Annotation {
-        RectAnnotation(rect: rect, color: color, lineWidth: lineWidth, filled: filled, strokeStyle: strokeStyle, roughStyle: roughStyle, rotation: rotation)
+        RectAnnotation(rect: rect, color: color, lineWidth: lineWidth, filled: filled, strokeStyle: strokeStyle, rotation: rotation)
     }
 
     func withShapeFillMode(_ fillMode: ShapeFillMode) -> Annotation {
-        RectAnnotation(rect: rect, color: color, lineWidth: lineWidth, fillMode: fillMode, strokeStyle: strokeStyle, roughStyle: roughStyle, rotation: rotation)
+        RectAnnotation(rect: rect, color: color, lineWidth: lineWidth, fillMode: fillMode, strokeStyle: strokeStyle, rotation: rotation)
     }
 
     func withShapeStrokeStyle(_ strokeStyle: ShapeStrokeStyle) -> Annotation {
-        RectAnnotation(rect: rect, color: color, lineWidth: lineWidth, fillMode: fillMode, strokeStyle: strokeStyle, roughStyle: roughStyle, rotation: rotation)
+        RectAnnotation(rect: rect, color: color, lineWidth: lineWidth, fillMode: fillMode, strokeStyle: strokeStyle, rotation: rotation)
     }
 }
 
@@ -1299,7 +491,6 @@ struct EllipseAnnotation: Annotation {
     let lineWidth: CGFloat
     let fillMode: ShapeFillMode
     let strokeStyle: ShapeStrokeStyle
-    let roughStyle: RoughShapeStyle
     var rotation: CGFloat = 0
 
     init(
@@ -1309,7 +500,6 @@ struct EllipseAnnotation: Annotation {
         filled: Bool = false,
         fillMode: ShapeFillMode? = nil,
         strokeStyle: ShapeStrokeStyle = .standard,
-        roughStyle: RoughShapeStyle? = nil,
         rotation: CGFloat = 0
     ) {
         self.rect = rect
@@ -1317,7 +507,6 @@ struct EllipseAnnotation: Annotation {
         self.lineWidth = lineWidth
         self.fillMode = fillMode ?? (filled ? .opaque : .none)
         self.strokeStyle = strokeStyle
-        self.roughStyle = roughStyle ?? RoughShapeStyle.make(rect: rect, lineWidth: lineWidth)
         self.rotation = rotation
     }
 
@@ -1326,8 +515,8 @@ struct EllipseAnnotation: Annotation {
     var filled: Bool { fillMode.isFilled }
 
     func draw(in context: CGContext, bounds: NSRect) {
-        ShapeDrawing.fillEllipse(rect, color: color, lineWidth: lineWidth, fillMode: fillMode, strokeStyle: strokeStyle, roughStyle: roughStyle, in: context)
-        ShapeDrawing.strokeEllipse(rect, color: color, lineWidth: lineWidth, strokeStyle: strokeStyle, roughStyle: roughStyle, in: context)
+        ShapeDrawing.fillEllipse(rect, color: color, lineWidth: lineWidth, fillMode: fillMode, strokeStyle: strokeStyle, in: context)
+        ShapeDrawing.strokeEllipse(rect, color: color, lineWidth: lineWidth, strokeStyle: strokeStyle, in: context)
     }
 
     func containsPoint(_ point: NSPoint) -> Bool {
@@ -1346,7 +535,6 @@ struct EllipseAnnotation: Annotation {
             lineWidth: lineWidth,
             fillMode: fillMode,
             strokeStyle: strokeStyle,
-            roughStyle: roughStyle,
             rotation: rotation
         )
     }
@@ -1358,23 +546,23 @@ struct EllipseAnnotation: Annotation {
     }
 
     func withColor(_ color: NSColor) -> Annotation {
-        EllipseAnnotation(rect: rect, color: color, lineWidth: lineWidth, fillMode: fillMode, strokeStyle: strokeStyle, roughStyle: roughStyle, rotation: rotation)
+        EllipseAnnotation(rect: rect, color: color, lineWidth: lineWidth, fillMode: fillMode, strokeStyle: strokeStyle, rotation: rotation)
     }
 
     func withLineWidth(_ lineWidth: CGFloat) -> Annotation {
-        EllipseAnnotation(rect: rect, color: color, lineWidth: lineWidth, fillMode: fillMode, strokeStyle: strokeStyle, roughStyle: roughStyle.tuned(for: rect, lineWidth: lineWidth), rotation: rotation)
+        EllipseAnnotation(rect: rect, color: color, lineWidth: lineWidth, fillMode: fillMode, strokeStyle: strokeStyle, rotation: rotation)
     }
 
     func withFill(_ filled: Bool) -> Annotation {
-        EllipseAnnotation(rect: rect, color: color, lineWidth: lineWidth, filled: filled, strokeStyle: strokeStyle, roughStyle: roughStyle, rotation: rotation)
+        EllipseAnnotation(rect: rect, color: color, lineWidth: lineWidth, filled: filled, strokeStyle: strokeStyle, rotation: rotation)
     }
 
     func withShapeFillMode(_ fillMode: ShapeFillMode) -> Annotation {
-        EllipseAnnotation(rect: rect, color: color, lineWidth: lineWidth, fillMode: fillMode, strokeStyle: strokeStyle, roughStyle: roughStyle, rotation: rotation)
+        EllipseAnnotation(rect: rect, color: color, lineWidth: lineWidth, fillMode: fillMode, strokeStyle: strokeStyle, rotation: rotation)
     }
 
     func withShapeStrokeStyle(_ strokeStyle: ShapeStrokeStyle) -> Annotation {
-        EllipseAnnotation(rect: rect, color: color, lineWidth: lineWidth, fillMode: fillMode, strokeStyle: strokeStyle, roughStyle: roughStyle, rotation: rotation)
+        EllipseAnnotation(rect: rect, color: color, lineWidth: lineWidth, fillMode: fillMode, strokeStyle: strokeStyle, rotation: rotation)
     }
 }
 
@@ -2110,121 +1298,6 @@ struct LineAnnotation: Annotation {
 
     func withLineWidth(_ lineWidth: CGFloat) -> Annotation {
         LineAnnotation(startPoint: startPoint, endPoint: endPoint, color: color, lineWidth: lineWidth)
-    }
-}
-
-// MARK: - Image Annotation
-
-struct ImageAnnotation: Annotation {
-    let image: NSImage
-    let rect: NSRect
-    var rotation: CGFloat = 0
-
-    var boundingRect: NSRect { rect }
-    var supportsRotation: Bool { true }
-
-    func draw(in context: CGContext, bounds: NSRect) {
-        NSGraphicsContext.saveGraphicsState()
-        NSGraphicsContext.current?.imageInterpolation = .high
-        image.draw(
-            in: rect,
-            from: NSRect(origin: .zero, size: image.size),
-            operation: .sourceOver,
-            fraction: 1.0,
-            respectFlipped: false,
-            hints: [.interpolation: NSImageInterpolation.high.rawValue]
-        )
-        NSGraphicsContext.restoreGraphicsState()
-    }
-
-    func containsPoint(_ point: NSPoint) -> Bool {
-        let p = unrotate(point)
-        return rect.insetBy(dx: -8, dy: -8).contains(p)
-    }
-
-    func translated(by delta: NSPoint) -> Annotation {
-        ImageAnnotation(
-            image: image,
-            rect: rect.offsetBy(dx: delta.x, dy: delta.y),
-            rotation: rotation
-        )
-    }
-
-    func withRotation(_ rotation: CGFloat) -> Annotation {
-        ImageAnnotation(image: image, rect: rect, rotation: rotation)
-    }
-
-    func withRect(_ rect: NSRect) -> ImageAnnotation {
-        ImageAnnotation(image: image, rect: rect, rotation: rotation)
-    }
-}
-
-// MARK: - Emoji Annotation
-
-struct EmojiAnnotation: Annotation {
-    let emoji: String
-    let rect: NSRect
-    var rotation: CGFloat = 0
-
-    var boundingRect: NSRect { rect }
-    var supportsRotation: Bool { true }
-
-    func draw(in context: CGContext, bounds: NSRect) {
-        NSGraphicsContext.saveGraphicsState()
-        NSGraphicsContext.current?.imageInterpolation = .high
-        EmojiGlyphRenderer.image(for: emoji).draw(
-            in: rect,
-            from: NSRect(origin: .zero, size: EmojiGlyphRenderer.imageSize),
-            operation: .sourceOver,
-            fraction: 1.0,
-            respectFlipped: false,
-            hints: [.interpolation: NSImageInterpolation.high.rawValue]
-        )
-        NSGraphicsContext.restoreGraphicsState()
-    }
-
-    func containsPoint(_ point: NSPoint) -> Bool {
-        let p = unrotate(point)
-        return rect.insetBy(dx: -8, dy: -8).contains(p)
-    }
-
-    func translated(by delta: NSPoint) -> Annotation {
-        EmojiAnnotation(
-            emoji: emoji,
-            rect: rect.offsetBy(dx: delta.x, dy: delta.y),
-            rotation: rotation
-        )
-    }
-
-    func withRotation(_ rotation: CGFloat) -> Annotation {
-        EmojiAnnotation(emoji: emoji, rect: rect, rotation: rotation)
-    }
-
-    func withRect(_ rect: NSRect) -> EmojiAnnotation {
-        EmojiAnnotation(emoji: emoji, rect: rect, rotation: rotation)
-    }
-}
-
-private enum EmojiGlyphRenderer {
-    static let imageSize = NSSize(width: 128, height: 128)
-    private static var cache: [String: NSImage] = [:]
-
-    static func image(for emoji: String) -> NSImage {
-        if let cached = cache[emoji] { return cached }
-
-        let image = NSImage(size: imageSize, flipped: false) { rect in
-            let font = NSFont.systemFont(ofSize: 96)
-            let attributes: [NSAttributedString.Key: Any] = [.font: font]
-            let measured = (emoji as NSString).size(withAttributes: attributes)
-            let origin = NSPoint(
-                x: rect.midX - measured.width / 2,
-                y: rect.midY - measured.height / 2
-            )
-            (emoji as NSString).draw(at: origin, withAttributes: attributes)
-            return true
-        }
-        cache[emoji] = image
-        return image
     }
 }
 
