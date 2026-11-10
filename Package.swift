@@ -18,13 +18,11 @@ let package = Package(
             linkerSettings: [
                 .linkedFramework("AppKit"),
                 .linkedFramework("AVFoundation"),
-                .linkedFramework("AVKit"),
                 .linkedFramework("ScreenCaptureKit"),
                 .linkedFramework("CoreImage"),
                 .linkedFramework("ImageIO"),
                 .linkedFramework("UniformTypeIdentifiers"),
                 .linkedFramework("Carbon"),
-                .linkedFramework("VideoToolbox"),
                 .linkedLibrary("z"),
             ]
         ),
