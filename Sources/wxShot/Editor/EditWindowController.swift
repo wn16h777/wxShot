@@ -29,45 +29,6 @@ enum EditorToolbarPlacement {
 
         return NSRect(x: x, y: y, width: width, height: height)
     }
-
-    static func sideToolbarRect(
-        referenceRect: NSRect,
-        in bounds: NSRect,
-        size: NSSize,
-        avoiding primaryFrame: NSRect? = nil
-    ) -> NSRect {
-        let width = size.width
-        let height = size.height
-        let margin = edgeMargin
-
-        let minimumX = bounds.minX + margin
-        let maximumX = bounds.maxX - width - margin
-        var x = referenceRect.maxX + margin
-        if x + width > bounds.maxX - margin {
-            x = referenceRect.minX - width - margin
-        }
-        x = max(minimumX, min(maximumX, x))
-
-        let minimumY = bounds.minY + margin
-        let maximumY = bounds.maxY - height - margin
-        var y = max(minimumY, min(maximumY, referenceRect.minY))
-
-        var rect = NSRect(x: x, y: y, width: width, height: height)
-
-        if let primary = primaryFrame, rect.intersects(primary) {
-            // Try to sit fully above the primary toolbar's band; fall back
-            // to below it when there isn't enough headroom.
-            let above = primary.maxY + margin
-            if above + height <= bounds.maxY - margin {
-                y = above
-            } else {
-                y = max(minimumY, primary.minY - margin - height)
-            }
-            rect.origin.y = y
-        }
-
-        return rect
-    }
 }
 
 struct FixedImageCropGeometry {
@@ -153,9 +114,6 @@ class EditWindowController {
     private var selectionChromeOverlay: SelectionChromeOverlay?
     private weak var hostSelectionView: SelectionView?
     private var toolbarView: ToolbarView?
-    /// Optional vertical toolbar on the left/right of the selection. Created
-    /// only when the user has assigned tools to it in settings.
-    private var sideToolbarView: ToolbarView?
     private var subToolbarView: NSView?
     private var captureRect: CGRect
     private var screen: NSScreen
@@ -401,42 +359,20 @@ class EditWindowController {
 
     private func showToolbar() {
         guard let hostSelectionView else { return }
-        let layout = Defaults.toolbarLayout
 
-        // Each toolbar exists only when the user has assigned tools to it.
-        if !layout.primary.isEmpty {
-            let tv = ToolbarView(items: layout.primary, orientation: .horizontal)
-            wireToolbarCallbacks(tv)
-            tv.frame = toolbarRect(in: hostSelectionView.bounds, size: tv.preferredSize)
-            styleFloatingHUD(tv)
-            self.toolbarView = tv
-            hostSelectionView.addSubview(tv)
-        }
-
-        if !layout.side.isEmpty {
-            let sv = ToolbarView(items: layout.side, orientation: .vertical)
-            wireToolbarCallbacks(sv)
-            sv.frame = sideToolbarRect(
-                in: hostSelectionView.bounds,
-                size: sv.preferredSize,
-                avoiding: toolbarView?.frame
-            )
-            styleFloatingHUD(sv)
-            self.sideToolbarView = sv
-            hostSelectionView.addSubview(sv)
-        }
+        let tv = ToolbarView(items: ToolbarLayout.items)
+        wireToolbarCallbacks(tv)
+        tv.frame = toolbarRect(in: hostSelectionView.bounds, size: tv.preferredSize)
+        styleFloatingHUD(tv)
+        self.toolbarView = tv
+        hostSelectionView.addSubview(tv)
     }
 
-    /// Injects the controller's action callbacks into a toolbar. Both the
-    /// primary and the side toolbar share the same wiring — a tool behaves
-    /// identically regardless of which bar it was dragged to.
+    /// Injects the controller's action callbacks into the toolbar.
     private func wireToolbarCallbacks(_ tv: ToolbarView) {
         tv.onItemTriggered = { [weak self] item in
             _ = self?.performToolbarItem(item, togglesSelectedTool: true)
         }
-        tv.onMoveSelectionStart = { [weak self] in self?.handleMoveSelectionStart() }
-        tv.onMoveSelectionDrag = { [weak self] delta in self?.handleMoveSelectionDrag(delta: delta) }
-        tv.onMoveSelectionEnd = { [weak self] in self?.handleMoveSelectionEnd() }
     }
 
     @discardableResult
@@ -454,8 +390,6 @@ class EditWindowController {
         }
 
         switch item {
-        case .colorPicker:
-            break
         case .undo:
             _ = canvasView?.undo()
         case .redo:
@@ -472,8 +406,6 @@ class EditWindowController {
             confirm()
         case .settings:
             openSettings()
-        case .moveSelection:
-            return false
         case .rectangle, .ellipse, .arrow, .line, .pen,
              .mosaic, .numbered, .text:
             return false
@@ -527,23 +459,14 @@ class EditWindowController {
         return true
     }
 
-    /// Primary + side toolbars currently on screen.
-    private var toolbars: [ToolbarView] {
-        [toolbarView, sideToolbarView].compactMap { $0 }
-    }
-
     private func updateHistoryButtons(canUndo: Bool, canRedo: Bool) {
-        toolbars.forEach {
-            $0.setUndoEnabled(canUndo)
-            $0.setRedoEnabled(canRedo)
-        }
+        toolbarView?.setUndoEnabled(canUndo)
+        toolbarView?.setRedoEnabled(canRedo)
     }
 
-    /// Frame the option sub-toolbars (color/size, text, beautify) anchor
-    /// against — the primary toolbar when it exists, otherwise the side
-    /// toolbar, so options still appear if the user emptied the primary bar.
+    /// Frame the option sub-toolbars (color/size, text, beautify) anchor against.
     private var subToolbarAnchorFrame: NSRect? {
-        toolbarView?.frame ?? sideToolbarView?.frame
+        toolbarView?.frame
     }
 
     func updateLayout(selectionRect: NSRect, selectionViewRect: NSRect, captureRect: CGRect) {
@@ -641,7 +564,7 @@ class EditWindowController {
         canvasView?.activeTool = tool
         normalizeShapeStrokeStyle(for: tool)
         pushCurrentStyleToCanvas()
-        toolbars.forEach { $0.updateSelection(tool: tool) }
+        toolbarView?.updateSelection(tool: tool)
         updateEditorInteractionState()
 
         showSubToolbar(for: tool)
@@ -1012,13 +935,6 @@ class EditWindowController {
                 size: toolbarView.preferredSize
             )
         }
-        if let sideToolbarView {
-            sideToolbarView.frame = sideToolbarRect(
-                in: hostSelectionView.bounds,
-                size: sideToolbarView.preferredSize,
-                avoiding: toolbarView?.frame
-            )
-        }
         updateSubToolbarPosition()
         updateSelectionChromePresentation()
     }
@@ -1030,32 +946,6 @@ class EditWindowController {
             rect: selectionViewRect,
             active: isVisible
         )
-    }
-
-    // MARK: - Move-selection drag handle
-
-    /// Original selection rect captured at the moment the user pressed the
-    /// move-selection drag handle. Per-frame deltas are applied against
-    /// this so the rect doesn't drift if a frame is missed.
-    private var moveSelectionStartRect: NSRect?
-
-    private func handleMoveSelectionStart() {
-        canvasView?.commitActiveTextEditing()
-        moveSelectionStartRect = hostSelectionView?.currentSelectionRect ?? .zero
-    }
-
-    private func handleMoveSelectionDrag(delta: CGSize) {
-        guard let moveSelectionStartRect else { return }
-        hostSelectionView?.moveByExternalDrag(
-            deltaFromOriginal: delta,
-            originalRect: moveSelectionStartRect
-        )
-    }
-
-    private func handleMoveSelectionEnd() {
-        guard moveSelectionStartRect != nil else { return }
-        hostSelectionView?.finalizeExternalDrag()
-        moveSelectionStartRect = nil
     }
 
     // MARK: - Output
@@ -1329,32 +1219,6 @@ class EditWindowController {
         return String(format: "#%02X%02X%02X", r, g, b)
     }
 
-    private func popUpToolbarMenu(_ menu: NSMenu, anchoredTo itemID: ToolbarItemID) {
-        guard let hostSelectionView else { return }
-        let anchor = toolbarItemFrameInHost(for: itemID) ?? NSRect(
-            x: hostSelectionView.bounds.midX,
-            y: hostSelectionView.bounds.midY,
-            width: 1,
-            height: 1
-        )
-        menu.popUp(
-            positioning: nil,
-            at: NSPoint(x: anchor.minX, y: anchor.maxY + 4),
-            in: hostSelectionView
-        )
-        bringEditorToFront()
-    }
-
-    private func toolbarItemFrameInHost(for itemID: ToolbarItemID) -> NSRect? {
-        guard let hostSelectionView else { return nil }
-        for toolbar in toolbars {
-            if let frame = toolbar.frame(for: itemID) {
-                return toolbar.convert(frame, to: hostSelectionView)
-            }
-        }
-        return nil
-    }
-
     func confirmFromKeyboard() {
         guard !isWaitingForWindowCaptureOutput else { return }
         confirm()
@@ -1467,7 +1331,6 @@ class EditWindowController {
             windowCaptureWaitAlert = nil
             alert.window.sheetParent?.endSheet(alert.window, returnCode: .cancel)
         }
-        moveSelectionStartRect = nil
         canvasScrollView?.removeFromSuperview()
         canvasScrollView = nil
         canvasView?.discardPotentialConfirmDoubleClick()
@@ -1476,9 +1339,8 @@ class EditWindowController {
         selectionChromeOverlay = nil
         hostSelectionView?.annotationToolActive = false
         hostSelectionView?.selectionInteractionEnabled = true
-        toolbars.forEach { $0.isHidden = false; $0.removeFromSuperview() }
+        toolbarView?.removeFromSuperview()
         toolbarView = nil
-        sideToolbarView = nil
         subToolbarView?.removeFromSuperview()
         subToolbarView = nil
     }
@@ -1669,28 +1531,6 @@ class EditWindowController {
         )
     }
 
-    /// Frame for the vertical side toolbar. Prefers the right of the
-    /// selection, flips to the left when there's no room, and aligns its
-    /// bottom edge with the selection.
-    ///
-    /// `avoiding` is the primary toolbar's frame, when it exists. The two
-    /// bars are positioned independently against their own preferred
-    /// anchors, so for a small selection near a screen edge the side
-    /// toolbar can dip into the horizontal bar's row. When that happens we
-    /// slide the side toolbar clear of the primary toolbar's band.
-    private func sideToolbarRect(
-        in bounds: NSRect,
-        size: NSSize,
-        avoiding primaryFrame: NSRect? = nil
-    ) -> NSRect {
-        EditorToolbarPlacement.sideToolbarRect(
-            referenceRect: outerVisualRect(in: bounds),
-            in: bounds,
-            size: size,
-            avoiding: primaryFrame
-        )
-    }
-
     private func subToolbarRect(
         width: CGFloat,
         height: CGFloat,
@@ -1785,12 +1625,8 @@ final class EditorScrollView: NSScrollView {
     }
 }
 
-/// A row (horizontal) or column (vertical) of editor buttons built from a
-/// `[ToolbarItemID]`. Both the primary toolbar and the side toolbar are
-/// instances of this class — only `orientation` and the item list differ.
+/// A row of editor buttons built from a `[ToolbarItemID]`.
 class ToolbarView: NSView {
-    enum Orientation { case horizontal, vertical }
-
     /// Button run geometry. `preferredSize` derives the capsule size from
     /// these so the dark background always wraps the buttons exactly.
     static let buttonSize: CGFloat = 40
@@ -1801,7 +1637,6 @@ class ToolbarView: NSView {
     /// Inset on the cross axis — keeps a 52pt-thick capsule around 40pt buttons.
     static let crossPadding: CGFloat = 2.5
 
-    let orientation: Orientation
     private let items: [ToolbarItemID]
 
     /// Items that close a visual group; a thin separator follows them (WeChat's bar groups tools the same way).
@@ -1819,7 +1654,7 @@ class ToolbarView: NSView {
         return result
     }
 
-    /// Size that fits the current items in the current orientation.
+    /// Size that fits the current items.
     var preferredSize: NSSize {
         let n = items.count
         let gaps = items.dropLast().filter { Self.groupEnds.contains($0) }.count
@@ -1828,27 +1663,15 @@ class ToolbarView: NSView {
             + CGFloat(gaps) * Self.groupGap
             + Self.endPadding * 2
         let thickness = Self.buttonSize + Self.crossPadding * 2
-        switch orientation {
-        case .horizontal: return NSSize(width: max(run, thickness), height: thickness)
-        case .vertical:   return NSSize(width: thickness, height: max(run, thickness))
-        }
+        return NSSize(width: max(run, thickness), height: thickness)
     }
 
     var onItemTriggered: ((ToolbarItemID) -> Void)?
-    /// Press-and-drag callbacks for the "move selection" handle. The first
-    /// fires on mouseDown so the controller can capture the starting rect;
-    /// the second fires on every drag with the cumulative window-space
-    /// delta from the press; the third fires on mouseUp.
-    var onMoveSelectionStart: (() -> Void)?
-    var onMoveSelectionDrag: ((CGSize) -> Void)?
-    var onMoveSelectionEnd: (() -> Void)?
 
-    /// Every button keyed by its id — drives selection state, enable/disable,
-    /// and frame lookups. `MoveSelectionDragHandle` values are not `ToolButton`s.
+    /// Every button keyed by its id — drives selection state and enable/disable.
     private var buttons: [ToolbarItemID: NSView] = [:]
-    init(items: [ToolbarItemID], orientation: Orientation) {
+    init(items: [ToolbarItemID]) {
         self.items = items
-        self.orientation = orientation
         super.init(frame: NSRect(origin: .zero, size: .zero))
         setFrameSize(preferredSize)
         setupButtons()
@@ -1867,24 +1690,12 @@ class ToolbarView: NSView {
         }
     }
 
-    /// Sets the active highlight on a stateful button (scroll capture,
-    /// beautify). No-op if this toolbar doesn't hold the item.
-    func setActive(_ active: Bool, for id: ToolbarItemID) {
-        (buttons[id] as? ToolButton)?.isSelected = active
-    }
-
     /// Enables/disables a button and dims it when disabled.
     func setEnabled(_ enabled: Bool, for id: ToolbarItemID) {
         guard let btn = buttons[id] as? ToolButton else { return }
         btn.isEnabled = enabled
         btn.alphaValue = enabled ? 1.0 : 0.35
     }
-
-    /// `true` if this toolbar holds the given item.
-    func contains(_ id: ToolbarItemID) -> Bool { buttons[id] != nil }
-
-    /// Frame of an item's button in this toolbar's coordinate space.
-    func frame(for id: ToolbarItemID) -> NSRect? { buttons[id]?.frame }
 
     // Convenience wrappers so callers don't repeat the id literals.
     func setUndoEnabled(_ enabled: Bool) { setEnabled(enabled, for: .undo) }
@@ -1894,16 +1705,7 @@ class ToolbarView: NSView {
         let size = Self.buttonSize
         let offsets = self.offsets
         for (index, id) in items.enumerated() {
-            let along = offsets[index]
-            let frame: NSRect
-            switch orientation {
-            case .horizontal:
-                frame = NSRect(x: along, y: Self.crossPadding, width: size, height: size)
-            case .vertical:
-                // AppKit y grows upward, so the first item sits at the top.
-                let y = bounds.height - size - along
-                frame = NSRect(x: Self.crossPadding, y: y, width: size, height: size)
-            }
+            let frame = NSRect(x: offsets[index], y: Self.crossPadding, width: size, height: size)
             let view = makeButton(for: id, index: index, frame: frame)
             buttons[id] = view
             addSubview(view)
@@ -1911,16 +1713,6 @@ class ToolbarView: NSView {
     }
 
     private func makeButton(for id: ToolbarItemID, index: Int, frame: NSRect) -> NSView {
-        // The move-selection handle is a press-drag gesture, not a tap target.
-        if id.kind == .dragHandle {
-            let handle = MoveSelectionDragHandle(frame: frame)
-            handle.hoverTip = id.tooltip
-            handle.onDragStart = { [weak self] in self?.onMoveSelectionStart?() }
-            handle.onDrag = { [weak self] delta in self?.onMoveSelectionDrag?(delta) }
-            handle.onDragEnd = { [weak self] in self?.onMoveSelectionEnd?() }
-            return handle
-        }
-
         let btn = ToolButton(
             frame: frame,
             symbolName: id.symbolName,
@@ -1948,19 +1740,13 @@ class ToolbarView: NSView {
         let offsets = self.offsets
         for (index, id) in items.enumerated() where index < items.count - 1 && Self.groupEnds.contains(id) {
             let mid = offsets[index] + Self.buttonSize + (Self.buttonSpacing + Self.groupGap) / 2
-            switch orientation {
-            case .horizontal:
-                NSRect(x: mid - 0.5, y: 0, width: 1, height: bounds.height).fill()
-            case .vertical:
-                NSRect(x: 0, y: bounds.height - mid - 0.5, width: bounds.width, height: 1).fill()
-            }
+            NSRect(x: mid - 0.5, y: 0, width: 1, height: bounds.height).fill()
         }
     }
 
     @objc private func buttonTapped(_ sender: ToolButton) {
         guard sender.tag >= 0, sender.tag < items.count else { return }
         let id = items[sender.tag]
-        guard id != .moveSelection else { return }
         onItemTriggered?(id)
     }
 }
@@ -2078,129 +1864,6 @@ class ToolButton: NSButton {
     }
 }
 
-// MARK: - Move-selection Drag Handle
-
-/// Toolbar button that lets the user drag the entire selection rect by
-/// pressing-and-holding it. Visually mirrors `ToolButton` so it sits in the
-/// row consistently, but it acts as a drag handle rather than a tap target
-/// — `mouseDown` starts a drag, `mouseDragged` reports cumulative deltas in
-/// window coordinates, and `mouseUp` finalizes.
-final class MoveSelectionDragHandle: NSView {
-    var onDragStart: (() -> Void)?
-    var onDrag: ((CGSize) -> Void)?
-    var onDragEnd: (() -> Void)?
-    var hoverTip: String?
-
-    private var pressStartLocation: NSPoint?
-    private var isPressed: Bool = false {
-        didSet { needsDisplay = true }
-    }
-    private var hoverTrackingArea: NSTrackingArea?
-
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        wantsLayer = true
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    override var acceptsFirstResponder: Bool { true }
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-
-    override func resetCursorRects() {
-        super.resetCursorRects()
-        addCursorRect(bounds, cursor: NSCursor.openHand)
-    }
-
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let area = hoverTrackingArea {
-            removeTrackingArea(area)
-        }
-        let area = NSTrackingArea(
-            rect: bounds,
-            options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
-            owner: self,
-            userInfo: nil
-        )
-        addTrackingArea(area)
-        hoverTrackingArea = area
-    }
-
-    override func mouseEntered(with event: NSEvent) {
-        super.mouseEntered(with: event)
-        guard let tip = hoverTip, let window else { return }
-        let frameInWindow = convert(bounds, to: nil)
-        let frameOnScreen = window.convertToScreen(frameInWindow)
-        ToolTipWindow.show(text: tip, anchor: frameOnScreen)
-    }
-
-    override func mouseExited(with event: NSEvent) {
-        super.mouseExited(with: event)
-        ToolTipWindow.hide()
-    }
-
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        if window == nil { ToolTipWindow.hide() }
-    }
-
-    override func mouseDown(with event: NSEvent) {
-        ToolTipWindow.hide()
-        pressStartLocation = event.locationInWindow
-        isPressed = true
-        NSCursor.closedHand.set()
-        onDragStart?()
-    }
-
-    override func mouseDragged(with event: NSEvent) {
-        guard let start = pressStartLocation else { return }
-        let delta = CGSize(
-            width: event.locationInWindow.x - start.x,
-            height: event.locationInWindow.y - start.y
-        )
-        onDrag?(delta)
-    }
-
-    override func mouseUp(with event: NSEvent) {
-        pressStartLocation = nil
-        isPressed = false
-        NSCursor.openHand.set()
-        onDragEnd?()
-    }
-
-    override func draw(_ dirtyRect: NSRect) {
-        if isPressed {
-            let bg = NSBezierPath(roundedRect: bounds.insetBy(dx: 2, dy: 2), xRadius: 6, yRadius: 6)
-            AdaptiveChrome.selectedFill.setFill()
-            bg.fill()
-        }
-
-        let symbolName = "arrow.up.and.down.and.arrow.left.and.right"
-        let config = NSImage.SymbolConfiguration(pointSize: ToolbarView.symbolPointSize, weight: .medium)
-        guard let img = NSImage(
-            systemSymbolName: symbolName,
-            accessibilityDescription: "Move selection"
-        )?.withSymbolConfiguration(config) else { return }
-
-        let tint = NSImage(size: img.size, flipped: false) { rect in
-            img.draw(in: rect, from: .zero, operation: .sourceOver, fraction: 1)
-            NSColor.labelColor.set()
-            rect.fill(using: .sourceAtop)
-            return true
-        }
-
-        let drawRect = NSRect(
-            x: bounds.midX - tint.size.width / 2,
-            y: bounds.midY - tint.size.height / 2,
-            width: tint.size.width,
-            height: tint.size.height
-        )
-        tint.draw(in: drawRect)
-    }
-}
 private enum ShapeStrokePreviewShape {
     case rectangle
     case ellipse

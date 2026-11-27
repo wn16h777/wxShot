@@ -596,12 +596,6 @@ final class MagnifierLensPanelView: NSView {
             fitting: valueRect.width,
             truncation: .start
         )
-        let swatchRect = NSRect(
-            x: labelRect.maxX + colorSwatchGap,
-            y: labelRect.midY - swatchSide / 2,
-            width: swatchSide,
-            height: swatchSide
-        )
         drawCoreTextLine(labelLine, inkCenteredIn: labelRect, rightAligned: false)
         drawCoreTextLine(valueLine, inkCenteredIn: valueRect, rightAligned: true)
     }

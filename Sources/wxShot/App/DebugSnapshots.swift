@@ -46,7 +46,7 @@ enum DebugSnapshots {
         selection.layer?.borderWidth = 2
         scene.addSubview(selection)
 
-        let toolbar = ToolbarView(items: ToolbarLayout.default.primary, orientation: .horizontal)
+        let toolbar = ToolbarView(items: ToolbarLayout.items)
         toolbar.frame.origin = NSPoint(x: selection.frame.maxX - toolbar.frame.width, y: selection.frame.minY - toolbar.frame.height - 10)
         scene.addSubview(toolbar)
         return scene

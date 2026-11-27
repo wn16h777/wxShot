@@ -1,9 +1,9 @@
 import AppKit
 
-/// Stable identifier for every button that can appear in the editor's
-/// toolbars. Raw values are persisted in `UserDefaults`, so existing cases
-/// must never be renamed — only added or deprecated.
-enum ToolbarItemID: String, Codable, CaseIterable {
+/// Stable identifier for every button on the editor's toolbar. Raw values
+/// surface as the buttons' accessibility identifiers, so existing cases must
+/// never be renamed — only added or deprecated.
+enum ToolbarItemID: String {
     // Annotation tools (toggle an `EditTool`)
     case rectangle
     case ellipse
@@ -14,10 +14,8 @@ enum ToolbarItemID: String, Codable, CaseIterable {
     case numbered
     case text
     // Stateful actions
-    case colorPicker
     case undo
     case redo
-    case moveSelection
     // Output actions
     case save
     case pin
@@ -35,17 +33,13 @@ extension ToolbarItemID {
         case toggleTool
         /// Fires once on click, no persistent state.
         case momentary
-        /// Press-and-drag handle (move selection) — not a tappable button.
-        case dragHandle
     }
 
     var kind: Kind {
         switch self {
         case .rectangle, .ellipse, .arrow, .line, .pen, .mosaic, .numbered, .text:
             return .toggleTool
-        case .moveSelection:
-            return .dragHandle
-        case .colorPicker, .undo, .redo, .save, .pin, .close, .confirm, .settings, .share:
+        case .undo, .redo, .save, .pin, .close, .confirm, .settings, .share:
             return .momentary
         }
     }
@@ -75,10 +69,8 @@ extension ToolbarItemID {
         case .mosaic:        return "square.grid.3x3"
         case .numbered:      return "1.circle"
         case .text:          return "textformat"
-        case .colorPicker:   return "eyedropper"
         case .undo:          return "arrow.uturn.backward"
         case .redo:          return "arrow.uturn.forward"
-        case .moveSelection: return "arrow.up.and.down.and.arrow.left.and.right"
         case .save:          return "square.and.arrow.down"
         case .pin:           return "pin"
         case .close:         return "xmark"
@@ -111,10 +103,8 @@ extension ToolbarItemID {
         case .mosaic:        return L10n.tipMosaic
         case .numbered:      return L10n.tipNumbered
         case .text:          return L10n.tipText
-        case .colorPicker:   return L10n.tipColorPicker
         case .undo:          return L10n.tipUndo
         case .redo:          return L10n.tipRedo
-        case .moveSelection: return L10n.tipMoveSelection
         case .save:          return L10n.tipSave
         case .pin:           return L10n.tipPin
         case .close:         return L10n.tipCancel
@@ -144,7 +134,7 @@ extension ToolbarItemID {
         switch kind {
         case .toggleTool:
             return toolbarConfirmGreen
-        case .momentary, .dragHandle:
+        case .momentary:
             return normalColor
         }
     }
@@ -156,96 +146,12 @@ let toolbarDangerRed = NSColor(srgbRed: 0.89, green: 0.35, blue: 0.32, alpha: 1)
 let toolbarConfirmGreen = NSColor(srgbRed: 0.24, green: 0.72, blue: 0.42, alpha: 1)
 let toolbarIconGray = NSColor(srgbRed: 0.353, green: 0.353, blue: 0.353, alpha: 1)
 
-/// User-customizable assignment of every toolbar item to the primary
-/// (horizontal) toolbar, the side (vertical) toolbar, or hidden.
-struct ToolbarLayout: Equatable {
-    var primary: [ToolbarItemID]
-    var side: [ToolbarItemID]
-    var hidden: [ToolbarItemID]
-
-    /// Canonical left-to-right order. Used for the default layout and to
-    /// place any newly-introduced tool that an older persisted layout never
-    /// recorded.
-    static let canonicalOrder: [ToolbarItemID] = [
+/// wxShot's one and only toolbar, left to right: rectangle, ellipse, line,
+/// arrow, pen, mosaic, numbered, text | undo, redo, save, pin, share, close,
+/// confirm | settings.
+enum ToolbarLayout {
+    static let items: [ToolbarItemID] = [
         .rectangle, .ellipse, .line, .arrow, .pen, .mosaic, .numbered, .text,
-        .colorPicker, .undo, .redo, .moveSelection,
-        .save, .pin, .close, .confirm, .settings, .share,
+        .undo, .redo, .save, .pin, .share, .close, .confirm, .settings,
     ]
-
-    /// wxShot's fixed layout: rectangle, ellipse, line, arrow, pen, mosaic,
-    /// numbered, text | undo, redo, save, pin, share, close, confirm, settings.
-    static var `default`: ToolbarLayout {
-        ToolbarLayout(
-            primary: [
-                .rectangle, .ellipse, .line, .arrow, .pen, .mosaic, .numbered, .text,
-                .undo, .redo, .save, .pin, .share, .close, .confirm, .settings,
-            ],
-            side: [],
-            hidden: [
-                .colorPicker, .moveSelection,
-            ]
-        )
-    }
-
-    /// Drops duplicate / unknown ids and slots any tool missing from all
-    /// three buckets next to its canonical neighbour, so the result always
-    /// covers every `ToolbarItemID` exactly once regardless of app-version
-    /// drift. A newly-introduced tool lands beside its siblings (e.g. `line`
-    /// after `ellipse`) instead of being dumped at the end of the bar.
-    func normalized() -> ToolbarLayout {
-        var seen = Set<ToolbarItemID>()
-        func dedup(_ ids: [ToolbarItemID]) -> [ToolbarItemID] {
-            ids.filter { seen.insert($0).inserted }
-        }
-        var p = dedup(primary)
-        var s = dedup(side)
-        var h = dedup(hidden)
-
-        let missing = Self.canonicalOrder.filter { !seen.contains($0) }
-        for item in missing {
-            guard let canonicalIdx = Self.canonicalOrder.firstIndex(of: item) else { continue }
-            // Walk back through the canonical order to the nearest sibling
-            // that's already placed, then drop the new tool right after it
-            // in whichever bucket that sibling lives in.
-            var placed = false
-            for prevIdx in stride(from: canonicalIdx - 1, through: 0, by: -1) {
-                let prev = Self.canonicalOrder[prevIdx]
-                if let i = p.firstIndex(of: prev) { p.insert(item, at: i + 1); placed = true; break }
-                if let i = s.firstIndex(of: prev) { s.insert(item, at: i + 1); placed = true; break }
-                if let i = h.firstIndex(of: prev) { h.insert(item, at: i + 1); placed = true; break }
-            }
-            if !placed { p.insert(item, at: 0) }
-            seen.insert(item)
-        }
-        return ToolbarLayout(primary: p, side: s, hidden: h)
-    }
-}
-
-extension ToolbarLayout {
-    /// Builds a layout from a persisted `[bucket: [rawValue]]` dictionary,
-    /// silently skipping any raw value no longer backed by a `ToolbarItemID`.
-    init(dictionary: [String: [String]]) {
-        func parse(_ key: String) -> [ToolbarItemID] {
-            (dictionary[key] ?? []).compactMap(ToolbarItemID.init(rawValue:))
-        }
-        self.init(
-            primary: parse("primary"),
-            side: parse("side"),
-            hidden: parse("hidden")
-        )
-    }
-
-    /// Plain `[String: [String]]` form suitable for `UserDefaults`.
-    var dictionary: [String: [String]] {
-        [
-            "primary": primary.map(\.rawValue),
-            "side": side.map(\.rawValue),
-            "hidden": hidden.map(\.rawValue),
-        ]
-    }
-}
-
-extension Defaults {
-    /// wxShot ships one fixed toolbar that mirrors WeChat's, so there is nothing to persist.
-    static var toolbarLayout: ToolbarLayout { .default }
 }

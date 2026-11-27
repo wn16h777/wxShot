@@ -19,7 +19,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSApp.terminate(nil)
             return
         }
-        ImageEditLauncher.clearTempDir()
         if AppPermissions.screenRecordingGranted {
             OverlayWindowController.prewarmPresentationSurfaces()
             ScreenSnapshotProvider.shared.prewarm()

@@ -13,10 +13,7 @@ struct CaptureResult {
 class OverlayWindowController {
     /// Where a preset image came from — drives the source-specific edit hint.
     enum PresetSource {
-        case finder
-        case clipboard
         case pin
-        case merge
         case fullScreen
     }
 
@@ -968,7 +965,7 @@ class OverlayWindowController {
     /// selection sized to the supplied image, lock interaction, and hand off
     /// to the editor.
     private func enterPresetSelection() {
-        guard let presetImage else { return }
+        guard let presetImage, let presetSource else { return }
         let cursorPoint = NSEvent.mouseLocation
         let targetScreen = NSScreen.screens.first(where: { $0.frame.contains(cursorPoint) })
             ?? NSScreen.screens.first
@@ -1006,16 +1003,10 @@ class OverlayWindowController {
         let anchorRect = convertToScreenRect(viewRect, view: selectionView)
         let hint: String
         switch presetSource {
-        case .clipboard:
-            hint = L10n.clipboardEditExitHint
         case .pin:
             hint = L10n.pinEditExitHint
         case .fullScreen:
             hint = L10n.fullScreenEditExitHint
-        case .merge:
-            hint = L10n.mergeEditExitHint
-        case .finder, nil:
-            hint = L10n.finderEditExitHint
         }
         ToastWindow.show(
             message: hint,

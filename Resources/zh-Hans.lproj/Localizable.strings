@@ -3,7 +3,6 @@
 /* Settings */
 "showMenuBarIcon" = "显示菜单栏图标";
 "permissionsHeader" = "所需权限";
-"accessibilityDescription" = "用于检测双击 ⌘ Command 键来触发截图";
 "launchAtLogin" = "开机自动启动";
 "pinAcrossSpaces" = "贴图跨桌面显示";
 
@@ -18,13 +17,6 @@
 "pinToolbarCopy" = "复制钉图";
 "pinToolbarDrag" = "拖拽钉图";
 "pinToolbarEdit" = "编辑钉图";
-"pinToolbarEditText" = "编辑文字";
-
-/* Image-edit shortcuts */
-
-/* Copy-to-clipboard shortcut (editor confirm) */
-
-/* Save-to-file shortcut (editor save) */
 
 /* Shortcut conflict */
 "shortcutConflictTitle" = "快捷键已被占用";
@@ -37,7 +29,6 @@
 /* Menu bar */
 "takeScreenshot" = "截图";
 "takeFullScreenScreenshot" = "截全屏";
-"record" = "录制";
 "settings" = "设置";
 "quitApp" = "退出 wxShot";
 
@@ -46,12 +37,9 @@
 "dragToScreenshot" = "点击窗口或拖动以截图";
 "dragToScreenshotAspectFree" = "点击窗口或拖动以截图 · 框选自由比例（R）";
 "dragToScreenshotAspect" = "点击窗口或拖动以截图 · 框选 %@（R）";
-"dragToRecordAspect" = "点击窗口或拖动以录制 · 框选 %@（R）";
 
 /* Toast */
 "copiedToClipboard" = "已添加到剪贴板";
-"finderEditExitHint" = "从访达编辑，按 X 退出编辑";
-"clipboardEditExitHint" = "从剪贴板编辑，按 X 退出编辑";
 "pinEditExitHint" = "正在编辑钉图，按 X 退出编辑";
 "fullScreenEditExitHint" = "正在编辑全屏截图，按 X 退出编辑";
 "editSuspendedToast" = "已暂存编辑，下次触发截图时继续";
@@ -71,11 +59,9 @@
 "mosaicBlur" = "模糊";
 "tipNumbered" = "序号";
 "tipText" = "文字";
-"tipColorPicker" = "取色器";
 "tipPickedInkBottle" = "使用取色器提取颜色到墨水瓶";
 "tipUndo" = "撤销";
 "tipRedo" = "恢复撤销";
-"tipMoveSelection" = "移动选区";
 "tipSave" = "保存到文件";
 "tipPin" = "钉在屏幕";
 "tipCancel" = "取消";
@@ -90,62 +76,6 @@
 "arrowStyleLine" = "线条箭头";
 "arrowStyleDotTail" = "圆点箭头";
 
-/* Language */
-
-/* Settings sidebar tabs */
-
-"toolbarSettingsShortcutRecording" = "请按下“%@”的新快捷键，按 Esc 取消";
-"editorShortcutConflict" = "该快捷键已分配给“%@”";
-
-/* About pane */
-"aboutErrorLogLastCrash" = "最近日志 · %@";
-
-/* Updates — About pane */
-"updateNewVersionStatus" = "可更新到 Release v%@";
-"updateDownloadingStatus" = "下载中 %d%%";
-
-/* Updates — menu bar */
-"updateAvailableMenu" = "可更新到 Release v%@";
-"updateDownloadingMenu" = "正在下载更新… %d%%";
-
-/* Updates — progress HUD */
-"updateDownloadingHUD" = "正在下载更新 %d%%";
-
-/* Updates — manual check result alert */
-"updateAvailableTitle" = "可更新到 Release v%@";
-"updateUpToDateBody" = "当前版本 v%@ 已是最新";
-
-/* Quit confirmation dialog */
-
-/* Upload — toolbar / toast / progress */
-
-/* Upload — settings tab */
-"filenameRulePreview" = "%@";
-
-/* Upload — provider field labels */
-
-/* Upload — provider names */
-
-/* Upload — errors */
-"missingField" = "缺少 %@";
-
-/* Upload — test/validation pill */
-
-/* Upload — log lines */
-
-/* Permissions — status label */
-
-/* OCR & Translation — result panel */
-
-/* Translation — settings tab */
-
-/* Translation — target language names */
-
-/* Translation — errors */
-
-/* Image Merge */
-"mergeEditExitHint" = "正在编辑合并图片，按 X 退出编辑";
-
 /* Screenshot quality */
 "screenshotQualityOriginal" = "原图";
 "screenshotQualityOriginalHint" = "PNG 原尺寸无损画质，体积最大";
@@ -155,20 +85,11 @@
 "screenshotQualityCompressingClipboard" = "正在压缩后复制";
 "screenshotCompressionFailed" = "图片压缩失败";
 
-/* Save paths */
-
 /* Magnifier lens panel */
 "magnifierLensPanelCoordinatesLabel" = "坐标";
 "magnifierLensPanelColorValueLabel" = "色值";
-"magnifierLensPanelCoordinates" = "坐标: %@, %@";
-"magnifierLensPanelRgb" = "RGB: %@";
 "magnifierLensPanelRgbString" = "rgb(%d, %d, %d)";
 "magnifierLensPanelAspectFree" = "自由";
-/* 文件上传 */
-
-
-/* General settings categories */
-
 
 "windowCapturePreparing" = "正在准备截图";
 
@@ -193,19 +114,7 @@
 "wxStepShortcut" = "2  在任何界面按 %@ 即可截图";
 "wxStepShortcutNote" = "拖动框选，双击或回车复制，Esc 取消。随时再次打开 wxShot 即可修改设置";
 "wxStartButton" = "开始使用";
-"wxLaterButton" = "稍后";
-
-/* wxShot */
 "wxConfirmDiscard" = "再按一次退出，当前标注将丢失";
 "wxTipSettings" = "设置";
-
-/* wxShot */
 "wxTipShare" = "分享";
-"wxTipMore" = "更多";
-
-/* wxShot */
 "wxLensCopyHint" = "按 ⌘+C 复制色值";
-
-/* wxShot */
-
-/* wxShot */

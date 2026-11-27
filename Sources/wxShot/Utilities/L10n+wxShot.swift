@@ -24,10 +24,8 @@ extension L10n {
     static func wxStepShortcut(_ shortcut: String) -> String { String(format: w("wxStepShortcut"), shortcut) }
     static var wxStepShortcutNote: String { w("wxStepShortcutNote") }
     static var wxStartButton: String { w("wxStartButton") }
-    static var wxLaterButton: String { w("wxLaterButton") }
     static var wxConfirmDiscard: String { w("wxConfirmDiscard") }
     static var wxTipSettings: String { w("wxTipSettings") }
     static var wxTipShare: String { w("wxTipShare") }
-    static var wxTipMore: String { w("wxTipMore") }
     static var wxLensCopyHint: String { w("wxLensCopyHint") }
 }

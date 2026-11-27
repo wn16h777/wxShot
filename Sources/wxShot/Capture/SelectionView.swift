@@ -143,8 +143,6 @@ class SelectionView: NSView {
 
     // MARK: - Public
 
-    var currentSelectionRect: NSRect? { selectionRect }
-
     func refreshHoverAtCurrentMouseLocation() {
         guard state == .idle, !selectionLocked else { return }
         updateWindowHover(screenPoint: NSEvent.mouseLocation)
@@ -155,28 +153,6 @@ class SelectionView: NSView {
         state = .selected
         needsDisplay = true
         refreshCursorRects()
-    }
-
-    /// Translate the selection rect by `delta` from the supplied
-    /// `originalRect` and notify the delegate. Used by the editor toolbar's
-    /// drag-handle button — it captures the rect at mouseDown and forwards
-    /// per-frame deltas while the user drags. Mirrors the clamping done by
-    /// the in-rect `.move` gesture so the selection stays on screen.
-    func moveByExternalDrag(deltaFromOriginal delta: CGSize, originalRect: NSRect) {
-        var newRect = originalRect.offsetBy(dx: delta.width, dy: delta.height)
-        newRect = clampedForMove(newRect)
-        selectionRect = newRect
-        state = .selected
-        delegate?.selectionDidChange(rect: newRect, inView: self)
-        needsDisplay = true
-    }
-
-    /// Mirror of `mouseUp`'s `.move` finalize: notify the delegate that the
-    /// selection rect's final position is committed.
-    func finalizeExternalDrag() {
-        if let rect = selectionRect {
-            delegate?.selectionDidComplete(rect: rect, inView: self, isWindowSelection: false, windowID: nil)
-        }
     }
 
     /// Resize the selection rect using a handle drag driven by an overlay

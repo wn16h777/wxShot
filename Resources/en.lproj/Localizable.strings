@@ -3,7 +3,6 @@
 /* Settings */
 "showMenuBarIcon" = "Show Menu Bar Icon";
 "permissionsHeader" = "Required Permissions";
-"accessibilityDescription" = "Needed to detect double-tap ⌘ Command key globally to trigger screenshots";
 "launchAtLogin" = "Launch at Login";
 "pinAcrossSpaces" = "Show Pins Across Desktops";
 
@@ -18,13 +17,6 @@
 "pinToolbarCopy" = "Copy pinned image";
 "pinToolbarDrag" = "Drag pinned image";
 "pinToolbarEdit" = "Edit pinned image";
-"pinToolbarEditText" = "Edit text";
-
-/* Image-edit shortcuts */
-
-/* Copy-to-clipboard shortcut (editor confirm) */
-
-/* Save-to-file shortcut (editor save) */
 
 /* Shortcut conflict */
 "shortcutConflictTitle" = "Shortcut Already in Use";
@@ -37,7 +29,6 @@
 /* Menu bar */
 "takeScreenshot" = "Take Screenshot";
 "takeFullScreenScreenshot" = "Capture Full Screen";
-"record" = "Record";
 "settings" = "Settings";
 "quitApp" = "Quit wxShot";
 
@@ -46,12 +37,9 @@
 "dragToScreenshot" = "Click window or drag to screenshot";
 "dragToScreenshotAspectFree" = "Click window or drag to screenshot · Drag selection free ratio (R)";
 "dragToScreenshotAspect" = "Click window or drag to screenshot · Drag selection %@ (R)";
-"dragToRecordAspect" = "Click window or drag to record · Drag selection %@ (R)";
 
 /* Toast */
 "copiedToClipboard" = "Copied to clipboard";
-"finderEditExitHint" = "Editing from Finder. Press X to exit editing";
-"clipboardEditExitHint" = "Editing from clipboard. Press X to exit editing";
 "pinEditExitHint" = "Editing pinned image. Press X to exit editing";
 "fullScreenEditExitHint" = "Editing full-screen screenshot. Press X to exit editing";
 "editSuspendedToast" = "Edit suspended, trigger screenshot again to continue";
@@ -71,11 +59,9 @@
 "mosaicBlur" = "Blur";
 "tipNumbered" = "Numbered";
 "tipText" = "Text";
-"tipColorPicker" = "Color Picker";
 "tipPickedInkBottle" = "Use the color picker to fill the ink bottle";
 "tipUndo" = "Undo";
 "tipRedo" = "Redo";
-"tipMoveSelection" = "Move Selection";
 "tipSave" = "Save to File";
 "tipPin" = "Pin to Screen";
 "tipCancel" = "Cancel";
@@ -90,62 +76,6 @@
 "arrowStyleLine" = "Line arrow";
 "arrowStyleDotTail" = "Dot-tail arrow";
 
-/* Language */
-
-/* Settings sidebar tabs */
-
-"toolbarSettingsShortcutRecording" = "Press a new shortcut for “%@” or press Esc to cancel";
-"editorShortcutConflict" = "This shortcut is already assigned to “%@”";
-
-/* About pane */
-"aboutErrorLogLastCrash" = "Latest log · %@";
-
-/* Updates — About pane */
-"updateNewVersionStatus" = "Release v%@ available";
-"updateDownloadingStatus" = "Downloading %d%%";
-
-/* Updates — menu bar */
-"updateAvailableMenu" = "Release v%@ Available";
-"updateDownloadingMenu" = "Downloading Update… %d%%";
-
-/* Updates — progress HUD */
-"updateDownloadingHUD" = "Downloading update %d%%";
-
-/* Updates — manual check result alert */
-"updateAvailableTitle" = "Release v%@ is available";
-"updateUpToDateBody" = "wxShot v%@ is the latest version";
-
-/* Quit confirmation dialog */
-
-/* Upload — toolbar / toast / progress */
-
-/* Upload — settings tab */
-"filenameRulePreview" = "%@";
-
-/* Upload — provider field labels */
-
-/* Upload — provider names */
-
-/* Upload — errors */
-"missingField" = "Missing %@";
-
-/* Upload — test/validation pill */
-
-/* Upload — log lines */
-
-/* Permissions — status label */
-
-/* OCR & Translation — result panel */
-
-/* Translation — settings tab */
-
-/* Translation — target language names */
-
-/* Translation — errors */
-
-/* Image Merge */
-"mergeEditExitHint" = "Editing merged image. Press X to exit editing";
-
 /* Screenshot quality */
 "screenshotQualityOriginal" = "Original";
 "screenshotQualityOriginalHint" = "PNG at full size and lossless quality, largest file";
@@ -155,20 +85,11 @@
 "screenshotQualityCompressingClipboard" = "Compressing before copy";
 "screenshotCompressionFailed" = "Image compression failed";
 
-/* Save paths */
-
 /* Magnifier lens panel */
 "magnifierLensPanelCoordinatesLabel" = "Coordinates";
 "magnifierLensPanelColorValueLabel" = "Color";
-"magnifierLensPanelCoordinates" = "Coordinates: %@, %@";
-"magnifierLensPanelRgb" = "RGB: %@";
 "magnifierLensPanelRgbString" = "rgb(%d, %d, %d)";
 "magnifierLensPanelAspectFree" = "Free";
-/* File upload */
-
-
-/* General settings categories */
-
 
 "windowCapturePreparing" = "Preparing screenshot";
 
@@ -193,19 +114,7 @@
 "wxStepShortcut" = "2  Press %@ anywhere to capture";
 "wxStepShortcutNote" = "Drag to select, double-click or press Return to copy, press Esc to cancel. Open wxShot again any time to change settings";
 "wxStartButton" = "Start Using wxShot";
-"wxLaterButton" = "Later";
-
-/* wxShot */
 "wxConfirmDiscard" = "Press again to exit — your edits will be lost";
 "wxTipSettings" = "Settings";
-
-/* wxShot */
 "wxTipShare" = "Share";
-"wxTipMore" = "More";
-
-/* wxShot */
 "wxLensCopyHint" = "Press ⌘+C to copy the color";
-
-/* wxShot */
-
-/* wxShot */

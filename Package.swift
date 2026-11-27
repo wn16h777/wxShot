@@ -17,7 +17,6 @@ let package = Package(
             exclude: ["App/Info.plist"],
             linkerSettings: [
                 .linkedFramework("AppKit"),
-                .linkedFramework("AVFoundation"),
                 .linkedFramework("ScreenCaptureKit"),
                 .linkedFramework("CoreImage"),
                 .linkedFramework("ImageIO"),

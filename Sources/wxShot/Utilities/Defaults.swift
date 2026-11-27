@@ -51,7 +51,6 @@ enum L10n {
     // Settings
     static var showMenuBarIcon: String { s("showMenuBarIcon") }
     static var permissionsHeader: String { s("permissionsHeader") }
-    static var accessibilityDescription: String { s("accessibilityDescription") }
     static var launchAtLogin: String { s("launchAtLogin") }
     static var pinAcrossSpaces: String { s("pinAcrossSpaces") }
     static var screenshotQualityOriginal: String { s("screenshotQualityOriginal") }
@@ -75,20 +74,15 @@ enum L10n {
     static var pinToolbarCopy: String { s("pinToolbarCopy") }
     static var pinToolbarDrag: String { s("pinToolbarDrag") }
     static var pinToolbarEdit: String { s("pinToolbarEdit") }
-    static var pinToolbarEditText: String { s("pinToolbarEditText") }
 
     // Magnifier lens panel (overlay magnifier lens panel)
     static var magnifierLensPanelCoordinatesLabel: String { s("magnifierLensPanelCoordinatesLabel") }
     static var magnifierLensPanelColorValueLabel: String { s("magnifierLensPanelColorValueLabel") }
-    static var magnifierLensPanelCoordinates: String { s("magnifierLensPanelCoordinates") }
-    static var magnifierLensPanelRgb: String { s("magnifierLensPanelRgb") }
     static var magnifierLensPanelAspectFree: String { s("magnifierLensPanelAspectFree") }
     static func magnifierLensPanelRgbString(r: Int, g: Int, b: Int) -> String {
         String(format: s("magnifierLensPanelRgbString"), r, g, b)
     }
 
-    // Copy-to-clipboard shortcut (editor confirm)
-    // Save-to-file shortcut (editor save)
     // Shortcut conflict
     static var shortcutConflictTitle: String { s("shortcutConflictTitle") }
     static var shortcutConflictScreenshot: String { s("shortcutConflictScreenshot") }
@@ -99,7 +93,6 @@ enum L10n {
     // Menu bar
     static var takeScreenshot: String { s("takeScreenshot") }
     static var takeFullScreenScreenshot: String { s("takeFullScreenScreenshot") }
-    static var record: String { s("record") }
     static var settings: String { s("settings") }
     static var quitApp: String { s("quitApp") }
 
@@ -110,21 +103,14 @@ enum L10n {
     static func dragToScreenshotAspect(_ ratio: String) -> String {
         String(format: s("dragToScreenshotAspect"), ratio)
     }
-    static func dragToRecordAspect(_ ratio: String) -> String {
-        String(format: s("dragToRecordAspect"), ratio)
-    }
 
     // Toast
     static var copiedToClipboard: String { s("copiedToClipboard") }
-    static var finderEditExitHint: String { s("finderEditExitHint") }
-    static var clipboardEditExitHint: String { s("clipboardEditExitHint") }
     static var pinEditExitHint: String { s("pinEditExitHint") }
     static var fullScreenEditExitHint: String { s("fullScreenEditExitHint") }
     static var editSuspendedToast: String { s("editSuspendedToast") }
     static var editSuspendedResumeToast: String { s("editSuspendedResumeToast") }
     static var fullScreenScreenshotFailed: String { s("fullScreenScreenshotFailed") }
-    static var mergeEditExitHint: String { s("mergeEditExitHint") }
-    // Microphone permission row
     static func screenshotSaved(to path: String) -> String {
         String(format: s("screenshotSaved"), path)
     }
@@ -144,11 +130,9 @@ enum L10n {
     static var mosaicBlur: String { s("mosaicBlur") }
     static var tipNumbered: String { s("tipNumbered") }
     static var tipText: String { s("tipText") }
-    static var tipColorPicker: String { s("tipColorPicker") }
     static var tipPickedInkBottle: String { s("tipPickedInkBottle") }
     static var tipUndo: String { s("tipUndo") }
     static var tipRedo: String { s("tipRedo") }
-    static var tipMoveSelection: String { s("tipMoveSelection") }
     static var tipSave: String { s("tipSave") }
     static var tipPin: String { s("tipPin") }
     static var windowCapturePreparing: String { s("windowCapturePreparing") }
@@ -163,61 +147,6 @@ enum L10n {
     static var arrowStyleDoubleEnded: String { s("arrowStyleDoubleEnded") }
     static var arrowStyleLine: String { s("arrowStyleLine") }
     static var arrowStyleDotTail: String { s("arrowStyleDotTail") }
-
-    // Insert tools
-    // Language
-    // Settings sidebar tabs
-    // Toolbar settings
-    static func toolbarSettingsShortcutRecording(_ action: String) -> String {
-        String(format: s("toolbarSettingsShortcutRecording"), action)
-    }
-    static func editorShortcutConflict(_ action: String) -> String {
-        String(format: s("editorShortcutConflict"), action)
-    }
-    // About pane
-    // Error log — About pane
-    static func aboutErrorLogLastCrash(_ date: String) -> String {
-        String(format: s("aboutErrorLogLastCrash"), date)
-    }
-    // Updates — About pane
-    static func updateNewVersionStatus(_ v: String) -> String {
-        String(format: s("updateNewVersionStatus"), v)
-    }
-    static func updateDownloadingStatus(_ percent: Int) -> String {
-        String(format: s("updateDownloadingStatus"), percent)
-    }
-    // Updates — menu bar
-    static func updateAvailableMenu(_ v: String) -> String {
-        String(format: s("updateAvailableMenu"), v)
-    }
-    static func updateDownloadingMenu(_ percent: Int) -> String {
-        String(format: s("updateDownloadingMenu"), percent)
-    }
-    // Updates — progress HUD
-    static func updateDownloadingHUD(_ percent: Int) -> String {
-        String(format: s("updateDownloadingHUD"), percent)
-    }
-    // Updates — manual check result alert
-    static func updateAvailableTitle(_ v: String) -> String {
-        String(format: s("updateAvailableTitle"), v)
-    }
-    static func updateUpToDateBody(_ v: String) -> String {
-        String(format: s("updateUpToDateBody"), v)
-    }
-    // Quit confirmation dialog
-    // Upload — toolbar / toast / progress
-    static func filenameRulePreview(_ value: String) -> String {
-        String(format: s("filenameRulePreview"), value)
-    }
-
-    // Upload — provider names
-    static func missingField(_ key: String) -> String {
-        String(format: s("missingField"), key)
-    }
-
-    // Permissions — status label
-    // OCR & Translation — result panel
-    // Translation — target language names
 }
 
 struct Defaults {
@@ -302,14 +231,8 @@ struct Defaults {
         defaults.removeObject(forKey: "selectionAspectRatio")
     }
 
-    private static func clearLegacyPinHotkey() {
-        defaults.removeObject(forKey: "pinHotkeyKeyCode")
-        defaults.removeObject(forKey: "pinHotkeyModifiers")
-    }
-
-    // Custom pin-image hotkeys. They are global Carbon hotkeys with no
-    // defaults: users opt in from Settings. Quick Pin captures a screen
-    // selection; the other shortcuts read Finder or clipboard content.
+    // Custom pin-image hotkey. It is a global Carbon hotkey with no default:
+    // users opt in from Settings. Quick Pin captures a screen selection.
 
     static var quickPinHotkeyKeyCode: Int {
         get { defaults.integer(forKey: "quickPinHotkeyKeyCode") }
@@ -325,79 +248,6 @@ struct Defaults {
         defaults.object(forKey: "quickPinHotkeyKeyCode") != nil
     }
 
-    static func clearQuickPinHotkey() {
-        defaults.removeObject(forKey: "quickPinHotkeyKeyCode")
-        defaults.removeObject(forKey: "quickPinHotkeyModifiers")
-    }
-
-    static func resetShortcutHotkeysToDefaults() {
-        clearScreenshotHotkey()
-        clearLegacyPinHotkey()
-        clearQuickPinHotkey()
-        clearTextRecognitionHotkey()
-        clearCopyImageTextHotkey()
-        clearFullScreenScreenshotHotkey()
-        clearClipboardHotkey()
-        clearFileSaveHotkey()
-    }
-
-    // Custom image-edit hotkeys. They are global Carbon hotkeys with no
-    // defaults: users opt in from Settings. The selected-image shortcut reads
-    // one image selected in Finder; the clipboard-image shortcut reads only
-    // the clipboard image.
-
-    // Custom OCR/translation hotkeys. They are global Carbon hotkeys with no
-    // defaults: users opt in from Settings, then select a region that is sent
-    // straight to the corresponding result panel.
-
-    static var textRecognitionHotkeyKeyCode: Int {
-        get { defaults.integer(forKey: "textRecognitionHotkeyKeyCode") }
-        set { defaults.set(newValue, forKey: "textRecognitionHotkeyKeyCode") }
-    }
-
-    static var textRecognitionHotkeyModifiers: Int {
-        get { defaults.integer(forKey: "textRecognitionHotkeyModifiers") }
-        set { defaults.set(newValue, forKey: "textRecognitionHotkeyModifiers") }
-    }
-
-    static var hasCustomTextRecognitionHotkey: Bool {
-        defaults.object(forKey: "textRecognitionHotkeyKeyCode") != nil
-    }
-
-    static func clearTextRecognitionHotkey() {
-        defaults.removeObject(forKey: "textRecognitionHotkeyKeyCode")
-        defaults.removeObject(forKey: "textRecognitionHotkeyModifiers")
-    }
-
-    static var copyImageTextHotkeyKeyCode: Int {
-        get { defaults.integer(forKey: "copyImageTextHotkeyKeyCode") }
-        set { defaults.set(newValue, forKey: "copyImageTextHotkeyKeyCode") }
-    }
-
-    static var copyImageTextHotkeyModifiers: Int {
-        get { defaults.integer(forKey: "copyImageTextHotkeyModifiers") }
-        set { defaults.set(newValue, forKey: "copyImageTextHotkeyModifiers") }
-    }
-
-    static var hasCustomCopyImageTextHotkey: Bool {
-        defaults.object(forKey: "copyImageTextHotkeyKeyCode") != nil
-    }
-
-    static func clearCopyImageTextHotkey() {
-        defaults.removeObject(forKey: "copyImageTextHotkeyKeyCode")
-        defaults.removeObject(forKey: "copyImageTextHotkeyModifiers")
-    }
-
-    static var recordHotkeyKeyCode: Int {
-        get { defaults.integer(forKey: "recordHotkeyKeyCode") }
-        set { defaults.set(newValue, forKey: "recordHotkeyKeyCode") }
-    }
-
-    static var recordHotkeyModifiers: Int {
-        get { defaults.integer(forKey: "recordHotkeyModifiers") }
-        set { defaults.set(newValue, forKey: "recordHotkeyModifiers") }
-    }
-
     static var fullScreenScreenshotHotkeyKeyCode: Int {
         get { defaults.integer(forKey: "fullScreenScreenshotHotkeyKeyCode") }
         set { defaults.set(newValue, forKey: "fullScreenScreenshotHotkeyKeyCode") }
@@ -410,11 +260,6 @@ struct Defaults {
 
     static var hasCustomFullScreenScreenshotHotkey: Bool {
         defaults.object(forKey: "fullScreenScreenshotHotkeyKeyCode") != nil
-    }
-
-    static func clearFullScreenScreenshotHotkey() {
-        defaults.removeObject(forKey: "fullScreenScreenshotHotkeyKeyCode")
-        defaults.removeObject(forKey: "fullScreenScreenshotHotkeyModifiers")
     }
 
     /// When true (default), screenshot "Save to file" shows a save panel.
@@ -579,11 +424,6 @@ struct Defaults {
         return defaults.object(forKey: "clipboardHotkeyKeyCode") != nil
     }
 
-    static func clearClipboardHotkey() {
-        defaults.removeObject(forKey: "clipboardHotkeyKeyCode")
-        defaults.removeObject(forKey: "clipboardHotkeyModifiers")
-    }
-
     // Custom save-to-file hotkey used inside the editor overlay to invoke
     // the configured-directory file save. When absent, defaults to ⌘S.
     // Matched locally against keyDown events, same as the clipboard hotkey.
@@ -600,11 +440,6 @@ struct Defaults {
 
     static var hasCustomFileSaveHotkey: Bool {
         defaults.object(forKey: "fileSaveHotkeyKeyCode") != nil
-    }
-
-    static func clearFileSaveHotkey() {
-        defaults.removeObject(forKey: "fileSaveHotkeyKeyCode")
-        defaults.removeObject(forKey: "fileSaveHotkeyModifiers")
     }
 
     // History navigation hotkeys used inside the editor overlay. Defaults are
